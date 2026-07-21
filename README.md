@@ -61,40 +61,71 @@ Feature extraction and analysis tools for Brazilian Portuguese speech research.
 | `ssl_hubert` | 1024 | HuggingFace | Facebook HuBERT large |
 | `ssl_w2vbert` | 2048 | HuggingFace | Wav2Vec2-Bert 2.0 |
 
-## Setup
-
-### 1. Download models
+## Quick Start (new machine)
 
 ```bash
-# Download everything (ZIPA, PhoneticXeus, 4 SSL models)
+# 1. Clone + install
+git clone <repo-url> pt_br_accent_toolbox
+cd pt_br_accent_toolbox
+pip install -e .
+
+# 2. Download models (auto-downloads from HuggingFace Hub)
 python tools/download_models.py all
 
-# Or download individually:
+# 3. Done. Start extracting features:
+pt-br-accent-toolbox markers my_audio.wav
+```
+
+## Setup
+
+### 1. Install the package
+
+```bash
+cd pt_br_accent_toolbox
+pip install -e .
+```
+
+### 2. Download models
+
+Models are auto-downloaded from HuggingFace Hub. No tokens or accounts needed.
+
+```bash
+# Download everything (ZIPA ~1.2 GB, PhoneticXeus, 4 SSL models)
+python tools/download_models.py all
+
+# Or individually:
 python tools/download_models.py zipa              # ZIPA CTC phone recognizer
 python tools/download_models.py phoneticxeus      # PhoneticXeus from HuggingFace
 python tools/download_models.py ssl               # ECAPA + XLS-R + HuBERT + Wav2Vec2-Bert
 ```
 
-> The ZIPA model is a custom CTC phone recognizer (~1.2 GB). See
-> `tools/download_models.py --help` for copy-from-path and URL options.
-
-### 2. Download datasets (optional)
+The ZIPA model (`pedrohlopes/zipa-ctc-ptbr`) is a custom CTC phone recognizer
+exported to ONNX. Use `model.int8.onnx` for a smaller download (296 MB vs 1.2 GB):
 
 ```bash
-python tools/download_datasets.py list            # see what's available
-python tools/download_datasets.py brspeech_df     # BRSpeech-DF bonafide
-python tools/download_datasets.py gneutral        # GneutralSpeech (requires Kaggle)
-python tools/download_datasets.py tagarela        # TAGARELA spotify subset
+export ZIPA_MODEL_FILE=model.int8.onnx
+python tools/download_models.py zipa
 ```
 
-### 3. Installation
+### 3. Download datasets (optional)
+
+16 datasets are registered — 5 with auto-download scripts, 11 with instructions:
 
 ```bash
-cd /mnt/data/accents/pt_br_accent_toolbox
-pip install -e .
+# List everything
+python tools/download_datasets.py list
+
+# Auto-downloadable datasets:
+python tools/download_datasets.py brspeech_df     # BRSpeech-DF (HF)
+python tools/download_datasets.py gneutral        # GneutralSpeech (Kaggle)
+python tools/download_datasets.py tagarela        # TAGARELA episodes (HF)
+python tools/download_datasets.py colingpb        # CoLingPB interviews
+python tools/download_datasets.py certas_palavras # Word reading (HF)
 ```
 
-### CLI Usage
+## Usage
+
+### CLI
 
 ```bash
 # Extract features for a set of speakers
@@ -229,31 +260,60 @@ pt_br_accent_toolbox/
 ## Requirements
 
 - **Python ≥ 3.10**
-- **ZIPA ONNX model** (`model.onnx` + `tokens.txt`) — run `tools/download_models.py zipa`
+- **Models** — run `python tools/download_models.py all` (auto-downloads from HF Hub)
 - **GPU** recommended for SSL models (falls back to CPU)
-- First PhoneticXeus use requires network access (downloads from HuggingFace)
+- Network access required for first-time model downloads
 
 ### Dependencies
 
 `numpy`, `scipy`, `scikit-learn`, `torch`, `torchaudio`, `transformers`,
-`onnxruntime-gpu`, `soundfile`, `librosa`, `lhotse`, `speechbrain`, `parselmouth`
+`onnxruntime-gpu`, `soundfile`, `librosa`, `lhotse`, `speechbrain`,
+`parselmouth`, `huggingface-hub`
+
+### Git Repository
+
+```bash
+git remote add origin <your-upstream-url>
+git push -u origin main
+```
 
 ## Configuration
 
-All paths can be set via environment variables, no code changes needed:
+All paths are set via environment variables — no code changes needed.
+The package works with defaults on any machine after running the download tools.
 
 | Variable | Default | Purpose |
 |----------|---------|---------|
 | `ACCENTS_BASE` | `/mnt/data/accents` | Root data directory |
-| `ZIPA_DIR` | `{BASE}/zipa_model` | ZIPA ONNX model + tokens |
-| `ZIPA_MODEL_FILE` | `model.onnx` | ONNX model filename |
+| `ZIPA_DIR` | `{BASE}/zipa_model` | ZIPA ONNX model + tokens location |
+| `ZIPA_MODEL_FILE` | `model.onnx` | ONNX model filename (`model.int8.onnx` for quantized) |
 | `ZIPA_TOKENS_FILE` | `tokens.txt` | Vocabulary filename |
-| `HF_CACHE_DIR` | `{BASE}/hf_cache` | HuggingFace model cache |
-| `ANNOTATIONS_DB` | `{BASE}/classifier_ui/annotations.db` | Speaker annotations DB |
+| `ZIPA_HF_REPO` | `pedrohlopes/zipa-ctc-ptbr` | HF Hub repo for ZIPA model download |
+| `ZIPA_DOWNLOAD_URL` | — | Raw URL base for ZIPA download (alternative to HF) |
+| `ZIPA_SOURCE_DIR` | — | Local directory to copy ZIPA from |
+| `HF_CACHE_DIR` | `{BASE}/hf_cache` | HuggingFace model cache directory |
+| `ANNOTATIONS_DB` | `{BASE}/classifier_ui/annotations.db` | Speaker annotations SQLite DB |
 
-Example:
+### Examples
+
 ```bash
-export ACCENTS_BASE=/path/to/data
-export ZIPA_MODEL_FILE=model.int8.onnx   # use quantized variant
+# Default setup (auto-downloads ZIPA from HF Hub):
 python tools/download_models.py all
+
+# Use quantized ZIPA model (296 MB instead of 1.2 GB):
+export ZIPA_MODEL_FILE=model.int8.onnx
+python tools/download_models.py zipa
+
+# Custom data root:
+export ACCENTS_BASE=/path/to/my_data
+export HF_CACHE_DIR=/path/to/my_data/hf_cache
+python tools/download_models.py all
+
+# Copy ZIPA from another machine:
+export ZIPA_SOURCE_DIR=/mnt/old_server/models/zipa
+python tools/download_models.py zipa
+
+# Use a different HF repo:
+export ZIPA_HF_REPO=my-org/my-zipa-model
+python tools/download_models.py zipa
 ```

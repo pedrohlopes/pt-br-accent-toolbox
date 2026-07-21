@@ -14,38 +14,38 @@ Feature extraction and analysis tools for Brazilian Portuguese speech research.
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────────┐
-│                         CLI / Python API                            │
-│  pt-br-accent-toolbox extract / markers / phonemes / annotations   │
-└────────────────────────┬────────────────────────────────────────────┘
-                         │
-                         ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      FeaturePipeline                                │
-│  Orchestrates lazy model loading + per-speaker feature routing      │
-└──┬──────────┬──────────┬──────────┬──────────┬─────────────────────┘
-   │          │          │          │          │
-   ▼          ▼          ▼          ▼          ▼
-┌──────┐ ┌────────┐ ┌──────┐ ┌────────┐ ┌──────────────────┐
-│ spec │ │  zipa  │ │  px  │ │ form   │ │        ssl       │
-│  6D  │ │  6+N D │ │ 13D  │ │  29D   │ │ ecapa  xlsr      │
-│      │ │        │ │      │ │        │ │ hubert w2vbert   │
-└──────┘ └────────┘ └──────┘ └────────┘ └──────────────────┘
-    │         │         │         │            │
-    │         │         │         │            │
-    │         │         │         ▼            │
-    │         │         │    ┌────────────┐    │
-    │         │         │    │ parselmouth│    │
-    │         │         │    │  (Burg)    │    │
-    │         │         │    └────────────┘    │
-    │         │         │                      │
-    ▼         ▼         ▼                      ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│                      Alignment Layer                                │
-│  ZIPA (CTC ONNX)  │  PhoneticXeus (HuggingFace)                    │
-│  ─ Phoneme timeline  ─ Marker frame detection ─ Phone group logits  │
-└─────────────────────────────────────────────────────────────────────┘
+                         Audio file(s)
+                     load_audio() → 16 kHz
+                              │
+         ┌────────────────────┼────────────────────┐
+         │                    │                    │
+    ┌────▼────────┐     ┌─────▼──────┐      ┌─────▼──────┐
+    │ ZIPA (ONNX) │     │  librosa   │      │ SSL models │
+    │ CTC align   │     │  MFCC      │      │ ECAPA etc. │
+    │ markers     │     └────────────┘      └─────┬──────┘
+    │ spikes      │                                │
+    │ logprobs    │                                │
+    └────┬────────┘                                │
+         │                                         │
+    ┌────▼────────┐                                │
+    │PhoneticXeus │                                │
+    │ phone logits│                                │
+    └────┬────────┘                                │
+         │                                         │
+    ┌────▼────────────────────┬────────────────────▼──┐
+    │              FeaturePipeline                     │
+    │  spec  zipa  px   │  formants  │  mfcc  ssl_*  │
+    │  ←── marker ──→   │ ← vowel →  │ ←─ global ──→│
+    └──────────────────────┬──────────────────────────┘
+                           │
+    ┌──────────────────────▼──────────────────────────┐
+    │              Classification                      │
+    │  loso_cv()  ·  ablation_grid() ·  compute_eer() │
+    └─────────────────────────────────────────────────┘
 ```
+
+Three feature families: **marker-local** (aligned to phonological events), **vowel**
+(per-vowel formant structure), and **global** (full-utterance embeddings).
 
 ## Feature Reference
 

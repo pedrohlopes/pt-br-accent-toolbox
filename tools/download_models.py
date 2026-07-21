@@ -45,7 +45,8 @@ ZIPA_FILES = {
     'tokens.txt': 'Phone token vocabulary',
 }
 
-# If hosted elsewhere, set ZIPA_DOWNLOAD_URL. Not publicly hosted yet.
+# Public HF repo — download by default. Override with ZIPA_HF_REPO env var.
+ZIPA_HF_REPO = os.environ.get('ZIPA_HF_REPO', 'pedrohlopes/zipa-ctc-ptbr')
 ZIPA_DOWNLOAD_URL = os.environ.get('ZIPA_DOWNLOAD_URL', None)
 
 
@@ -95,7 +96,7 @@ def download_zipa(force: bool = False) -> bool:
         if ok:
             return True
 
-    # Strategy 2: download from URL
+    # Strategy 2: download from URL (raw URL, not HF)
     if ZIPA_DOWNLOAD_URL:
         import urllib.request
         for fname in ZIPA_FILES:
@@ -112,28 +113,34 @@ def download_zipa(force: bool = False) -> bool:
                 return False
         return True
 
-    # Strategy 3: already exists at default path (BASE/zipa_model)
-    if all_present:
+    # Strategy 3: download from HuggingFace Hub (default)
+    _info(f'downloading ZIPA model from {ZIPA_HF_REPO} ...')
+    try:
+        from huggingface_hub import hf_hub_download
+        for fname in ZIPA_FILES:
+            if present[fname] and not force:
+                continue
+            local = hf_hub_download(ZIPA_HF_REPO, fname, repo_type='model',
+                                    local_dir=ZIPA_DIR, local_dir_use_symlinks=False)
+            _info(f'{fname} → {local}')
+        _info('ZIPA model downloaded from HuggingFace Hub')
         return True
-
-    _warn('ZIPA model files not found')
-    print()
-    print(f'  The ZIPA CTC phone recognizer is a custom model (1.2 GB).')
-    print(f'  Expected location: {ZIPA_DIR}')
-    print()
-    print(f'  To set up:')
-    print(f'    Option A — Copy from an existing location:')
-    print(f'      export ZIPA_SOURCE_DIR=/path/to/zipa_model')
-    print(f'      python tools/download_models.py zipa')
-    print()
-    print(f'    Option B — Set ZIPA_DOWNLOAD_URL and re-run:')
-    print(f'      export ZIPA_DOWNLOAD_URL=https://your-host/models/zipa')
-    print(f'      python tools/download_models.py zipa')
-    print()
-    print(f'    Option C — Place files manually at: {ZIPA_DIR}/')
-    print(f'      Needs: model.onnx (or model.int8.onnx) + tokens.txt')
-    print()
-    return False
+    except Exception as e:
+        _warn(f'HF Hub download failed: {e}')
+        print()
+        print(f'  Could not download from {ZIPA_HF_REPO}. Options:')
+        print(f'    Option A — Set a different HF repo:')
+        print(f'      export ZIPA_HF_REPO=your-org/zipa-model')
+        print(f'      python tools/download_models.py zipa')
+        print()
+        print(f'    Option B — Download from a raw URL:')
+        print(f'      export ZIPA_DOWNLOAD_URL=https://your-host/models/zipa')
+        print(f'      python tools/download_models.py zipa')
+        print()
+        print(f'    Option C — Copy files manually to: {ZIPA_DIR}/')
+        print(f'      Needs: model.onnx (or model.int8.onnx) + tokens.txt')
+        print()
+        return False
 
 
 # ── PhoneticXeus ─────────────────────────────────────────────────────────────

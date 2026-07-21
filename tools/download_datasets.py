@@ -90,10 +90,25 @@ DATASETS = {
         'args': [],
         'notes': 'Downloads from repositorio.ufpb.br. Requires pyannote + HF token.',
     },
+    'certas_palavras': {
+        'desc': 'Certas Palavras — isolated word reading (HF: nilc-nlp/certas_palavras)',
+        'script': 'download_certas_palavras.py',
+        'args': [],
+        'notes': 'Downloads via datasets library. ~70 speakers, studio quality.',
+    },
 }
 
 # Datasets without a dedicated download script (manual setup for now)
 MANUAL_DATASETS = {
+    'mlaad': {
+        'desc': 'MLAAD PT-BR — multi-TTS fake audio (HF: mozilla-foundation/mlaad)',
+        'url': 'https://huggingface.co/datasets/mozilla-foundation/mlaad',
+        'notes': 'Filter by lang=pt. 16 TTS systems. Use datasets library to download.',
+    },
+    'fakebraccent': {
+        'desc': 'FakeBrAccent — voice-converted PT-BR speech (Udinese corpus)',
+        'notes': 'Contact corpus authors for access. See accent_detection_fakebr/.',
+    },
     'alcaim': {
         'desc': 'ALCaim — PB accent corpus (Celle et al.)',
         'url': 'https://www.sketchengine.eu/alcaim-portuguese-corpus/',
@@ -107,6 +122,27 @@ MANUAL_DATASETS = {
     'lasas': {
         'desc': 'LASAS — PB speech corpus',
         'notes': 'Contact corpus authors.',
+    },
+    'braccent': {
+        'desc': 'BRAccent — PT-BR accent corpus',
+        'notes': 'Available via UFPA. Check BRAccent/ directory.',
+    },
+    'common_voice': {
+        'desc': 'Common Voice pt — Mozilla crowdsourced corpus',
+        'url': 'https://commonvoice.mozilla.org/',
+        'notes': 'Download cv_pt.tar.gz, then run extract_cv.py to organize.',
+    },
+    'cml_tts': {
+        'desc': 'CML TTS PT-BR — synthetic speech',
+        'notes': 'Download cml_tts_pt.tar.bz, then run extract_cml_tts.py.',
+    },
+    'coraal': {
+        'desc': 'CORAAL — Portuguese speech collection (NURC+CORAL+TED)',
+        'notes': 'Obtain coraa_train.zip, then run extract_coraa.py.',
+    },
+    'sotaque_brasileiro': {
+        'desc': 'Sotaque Brasileiro — PT-BR accent dataset',
+        'notes': 'Download sotaque_brasileiro.zip and extract.',
     },
 }
 
@@ -179,8 +215,9 @@ def main():
     parser = argparse.ArgumentParser(
         description='Download datasets for pt_br_accent_toolbox',
     )
+    all_keys = sorted(set(DATASETS.keys()) | set(MANUAL_DATASETS.keys()))
     parser.add_argument('target', nargs='?', default='list',
-                        choices=['list', 'all'] + list(DATASETS.keys()),
+                        choices=['list', 'all'] + all_keys,
                         help='Dataset to download (default: list)')
     parser.add_argument('extra', nargs=argparse.REMAINDER,
                         help='Extra args passed to the underlying download script')

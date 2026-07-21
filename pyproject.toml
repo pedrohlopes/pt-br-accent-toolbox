@@ -9,10 +9,8 @@ description = "Feature extraction and analysis tools for Brazilian Portuguese sp
 requires-python = ">=3.10"
 dependencies = [
     "numpy",
-    "scipy",
     "scikit-learn",
     "torch",
-    "torchaudio",
     "transformers",
     "onnxruntime-gpu",
     "soundfile",
@@ -20,6 +18,7 @@ dependencies = [
     "lhotse",
     "speechbrain",
     "parselmouth",
+    "huggingface-hub",
 ]
 
 [project.scripts]
@@ -27,3 +26,6 @@ pt-br-accent-toolbox = "pt_br_accent_toolbox.cli.main:main"
 
 [tool.setuptools.packages.find]
 include = ["pt_br_accent_toolbox*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

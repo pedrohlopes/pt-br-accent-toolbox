@@ -3,10 +3,10 @@ from __future__ import annotations
 import sqlite3
 from pathlib import Path
 
-from ..config import BASE
+from ..config import ANNOTATIONS_DB
 
 
-DEFAULT_DB = BASE / 'classifier_ui' / 'annotations.db'
+DEFAULT_DB = ANNOTATIONS_DB
 
 
 def load_annotations(db_path: Path | str | None = None) -> dict[str, dict[str, str]]:

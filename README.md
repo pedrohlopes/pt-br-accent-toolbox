@@ -61,9 +61,33 @@ Feature extraction and analysis tools for Brazilian Portuguese speech research.
 | `ssl_hubert` | 1024 | HuggingFace | Facebook HuBERT large |
 | `ssl_w2vbert` | 2048 | HuggingFace | Wav2Vec2-Bert 2.0 |
 
-## Quick Start
+## Setup
 
-### Installation
+### 1. Download models
+
+```bash
+# Download everything (ZIPA, PhoneticXeus, 4 SSL models)
+python tools/download_models.py all
+
+# Or download individually:
+python tools/download_models.py zipa              # ZIPA CTC phone recognizer
+python tools/download_models.py phoneticxeus      # PhoneticXeus from HuggingFace
+python tools/download_models.py ssl               # ECAPA + XLS-R + HuBERT + Wav2Vec2-Bert
+```
+
+> The ZIPA model is a custom CTC phone recognizer (~1.2 GB). See
+> `tools/download_models.py --help` for copy-from-path and URL options.
+
+### 2. Download datasets (optional)
+
+```bash
+python tools/download_datasets.py list            # see what's available
+python tools/download_datasets.py brspeech_df     # BRSpeech-DF bonafide
+python tools/download_datasets.py gneutral        # GneutralSpeech (requires Kaggle)
+python tools/download_datasets.py tagarela        # TAGARELA spotify subset
+```
+
+### 3. Installation
 
 ```bash
 cd /mnt/data/accents/pt_br_accent_toolbox
@@ -173,32 +197,39 @@ s_speakers = get_annotated_speakers(marker="s_coda", value="chiado")
 
 ```
 pt_br_accent_toolbox/
-├── config.py                 Audio SR, model paths, phone groups, SSL config
-├── alignment/
-│   ├── zipa.py              ZIPA CTC alignment, marker detection, phoneme extraction
-│   └── phoneticxeus.py      PhoneticXeus model loading, forward logits, pooling
-├── features/
-│   ├── spectral.py          6D spectral moments (pure NumPy)
-│   ├── zipa.py              Combined spectral + ZIPA logits at markers
-│   ├── phoneticxeus.py      PX group-logit features per marker
-│   ├── formants.py          29D vowel formant features (parselmouth Burg)
-│   ├── mfcc.py              Speaker-mean MFCC
-│   └── ssl.py               SSL embeddings (ECAPA, XLS-R, HuBERT, Wav2VecBert)
-├── classification/
-│   ├── loso.py              LOSO CV loop, EER computation
-│   └── ablation.py          Feature × classifier grid search
-├── data/
-│   └── annotations.py       SQLite annotation loader
-├── api/
-│   └── pipeline.py          High-level FeaturePipeline orchestrator
-└── cli/
-    └── main.py              CLI entry point
+├── README.md
+├── pyproject.toml            Package metadata, dependencies, entry point
+├── .gitignore
+├── tools/
+│   ├── download_models.py    Download ZIPA, PhoneticXeus, SSL models
+│   └── download_datasets.py  Download BRSpeech-DF, Gneutral, Tagarela, etc.
+└── pt_br_accent_toolbox/
+    ├── config.py             Audio SR, model paths, phone groups, SSL config
+    ├── alignment/
+    │   ├── zipa.py           ZIPA CTC alignment, marker detection, phoneme extraction
+    │   └── phoneticxeus.py   PhoneticXeus model loading, forward logits, pooling
+    ├── features/
+    │   ├── spectral.py       6D spectral moments (pure NumPy)
+    │   ├── zipa.py           Combined spectral + ZIPA logits at markers
+    │   ├── phoneticxeus.py   PX group-logit features per marker
+    │   ├── formants.py       29D vowel formant features (parselmouth Burg)
+    │   ├── mfcc.py           Speaker-mean MFCC
+    │   └── ssl.py            SSL embeddings (ECAPA, XLS-R, HuBERT, Wav2VecBert)
+    ├── classification/
+    │   ├── loso.py           LOSO CV loop, EER computation
+    │   └── ablation.py       Feature × classifier grid search
+    ├── data/
+    │   └── annotations.py    SQLite annotation loader
+    ├── api/
+    │   └── pipeline.py       High-level FeaturePipeline orchestrator
+    └── cli/
+        └── main.py           CLI entry point
 ```
 
 ## Requirements
 
 - **Python ≥ 3.10**
-- **ZIPA ONNX model** (`zipa.onnx` + `vocab.txt`) — configure paths in `config.py`
+- **ZIPA ONNX model** (`model.onnx` + `tokens.txt`) — run `tools/download_models.py zipa`
 - **GPU** recommended for SSL models (falls back to CPU)
 - First PhoneticXeus use requires network access (downloads from HuggingFace)
 
@@ -209,11 +240,20 @@ pt_br_accent_toolbox/
 
 ## Configuration
 
-Edit `pt_br_accent_toolbox/config.py` to point to your model paths:
+All paths can be set via environment variables, no code changes needed:
 
-```python
-BASE = Path('/path/to/data')
-ZIPA_MODEL = BASE / 'path/to/zipa.onnx'
-ZIPA_TOKENS = BASE / 'path/to/vocab.txt'
-HF_CACHE = BASE / 'hf_cache'
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `ACCENTS_BASE` | `/mnt/data/accents` | Root data directory |
+| `ZIPA_DIR` | `{BASE}/zipa_model` | ZIPA ONNX model + tokens |
+| `ZIPA_MODEL_FILE` | `model.onnx` | ONNX model filename |
+| `ZIPA_TOKENS_FILE` | `tokens.txt` | Vocabulary filename |
+| `HF_CACHE_DIR` | `{BASE}/hf_cache` | HuggingFace model cache |
+| `ANNOTATIONS_DB` | `{BASE}/classifier_ui/annotations.db` | Speaker annotations DB |
+
+Example:
+```bash
+export ACCENTS_BASE=/path/to/data
+export ZIPA_MODEL_FILE=model.int8.onnx   # use quantized variant
+python tools/download_models.py all
 ```

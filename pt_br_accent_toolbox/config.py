@@ -1,17 +1,34 @@
-"""PT-BR Accent Toolbox — configuration and constants."""
+"""
+PT-BR Accent Toolbox — configuration and constants.
 
+All paths can be overridden via environment variables:
+    ACCENTS_BASE         → default: /mnt/data/accents
+    ZIPA_DIR             → default: {BASE}/zipa_model
+    ZIPA_MODEL_FILE      → default: model.onnx
+    ZIPA_TOKENS_FILE     → default: tokens.txt
+    HF_CACHE_DIR         → default: {BASE}/hf_cache
+    ANNOTATIONS_DB       → default: {BASE}/classifier_ui/annotations.db
+"""
+
+import os
 from pathlib import Path
 
-BASE = Path('/mnt/data/accents')
-HF_CACHE = BASE / 'hf_cache'
+_BASE = Path(os.environ.get('ACCENTS_BASE', '/mnt/data/accents'))
+BASE = _BASE.resolve()
+HF_CACHE = Path(os.environ.get('HF_CACHE_DIR', str(BASE / 'hf_cache')))
 
 # ── audio ────────────────────────────────────────────────────────────────────
 SR = 16000
 FRAME_MS = 20
 
 # ── ZIPA model (project-specific CTC phone recognizer) ──────────────────────
-ZIPA_MODEL = BASE / 'exp_followups/exp18_long_switch/cache/zipa.onnx'
-ZIPA_TOKENS = BASE / 'exp_followups/exp18_long_switch/cache/vocab.txt'
+_ZIPA_DIR = Path(os.environ.get('ZIPA_DIR', str(BASE / 'zipa_model')))
+ZIPA_MODEL = _ZIPA_DIR / os.environ.get('ZIPA_MODEL_FILE', 'model.onnx')
+ZIPA_TOKENS = _ZIPA_DIR / os.environ.get('ZIPA_TOKENS_FILE', 'tokens.txt')
+
+# ── annotations DB ───────────────────────────────────────────────────────────
+ANNOTATIONS_DB = Path(os.environ.get('ANNOTATIONS_DB',
+                      str(BASE / 'classifier_ui' / 'annotations.db')))
 
 # ── phone groups for marker tasks ────────────────────────────────────────────
 # Candidate phone tokens per marker (IPA strings for both ZIPA and PhoneticXeus)

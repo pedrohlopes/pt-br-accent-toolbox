@@ -1,0 +1,29 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "pt_br_accent_toolbox"
+version = "0.1.0"
+description = "Feature extraction and analysis tools for Brazilian Portuguese speech"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+    "scikit-learn",
+    "torch",
+    "torchaudio",
+    "transformers",
+    "onnxruntime-gpu",
+    "soundfile",
+    "librosa",
+    "lhotse",
+    "speechbrain",
+    "parselmouth",
+]
+
+[project.scripts]
+pt-br-accent-toolbox = "pt_br_accent_toolbox.cli.main:main"
+
+[tool.setuptools.packages.find]
+include = ["pt_br_accent_toolbox*"]

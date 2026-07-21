@@ -7,7 +7,7 @@ import onnxruntime as ort
 from pathlib import Path
 from lhotse.features.kaldi.extractors import Fbank, FbankConfig
 
-from .config import ZIPA_MODEL, ZIPA_TOKENS, SR, FRAME_MS
+from ..config import ZIPA_MODEL, ZIPA_TOKENS, SR, FRAME_MS
 
 
 def load_vocab(tokens_path: Path | str | None = None) -> dict[int, str]:

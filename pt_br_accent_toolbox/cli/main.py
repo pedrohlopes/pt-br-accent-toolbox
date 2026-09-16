@@ -38,6 +38,10 @@ def main():
     pann.add_argument('--db', help='Annotations DB path')
     pann.add_argument('--marker', choices=['s_coda', 'r_coda', 'dt_palat'])
     pann.add_argument('--value', help='Filter by annotation value')
+    pann.add_argument('--rows', action='store_true',
+                      help='Dump the raw per-annotator rows (keeps dataset, annotator, source)')
+    pann.add_argument('--include-auto', action='store_true',
+                      help="Also include the script-written rows (annotator 'auto')")
     pann.add_argument('--out', help='Output JSON path (default: stdout)')
 
     args = parser.parse_args()
@@ -108,14 +112,24 @@ def run_phonemes(args):
 
 
 def run_annotations(args):
-    from ..data.annotations import load_annotations, get_annotated_speakers
+    from ..data.annotations import (get_annotated_speakers, load_annotation_rows,
+                                    load_annotations)
 
-    if args.marker:
-        spks = get_annotated_speakers(args.db, args.marker, args.value)
+    if args.rows:
+        rows = load_annotation_rows()
+        if not args.include_auto:
+            rows = [r for r in rows if r.get('source') != 'auto']
+        if args.marker:
+            rows = [r for r in rows
+                    if r.get(args.marker) and
+                    (args.value is None or r[args.marker] == args.value)]
+        out = rows
+    elif args.marker:
+        spks = get_annotated_speakers(args.db, args.marker, args.value,
+                                      include_auto=args.include_auto)
         out = {'speakers': spks, 'n': len(spks)}
     else:
-        ann = load_annotations(args.db)
-        out = ann
+        out = load_annotations(args.db, include_auto=args.include_auto)
 
     if args.out:
         json.dump(out, open(args.out, 'w'), indent=2, ensure_ascii=False)

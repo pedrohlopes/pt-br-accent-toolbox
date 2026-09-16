@@ -1,0 +1,26 @@
+dataset,speaker,missing,have,annotators
+alcaim,Alcione_F018,r_coda dt_palat,s_coda,Pedro H
+alcaim,AnaVarela_F042,r_coda dt_palat,s_coda,Pedro H
+alcaim,Anesia_F040,r_coda dt_palat,s_coda,Pedro H
+alcaim,Custodia_F033,r_coda dt_palat,s_coda,Pedro H
+alcaim,Diego_M026,r_coda dt_palat,s_coda,Pedro H
+alcaim,EduardoPereira_M016,r_coda dt_palat,s_coda,Pedro H
+alcaim,EduardoTardin_M022,r_coda dt_palat,s_coda,Pedro H
+alcaim,Elson_M007,r_coda dt_palat,s_coda,Pedro H
+alcaim,HenriqueMafra_M046,r_coda dt_palat,s_coda,Pedro H
+alcaim,IvoneAmitrano_F000,r_coda dt_palat,s_coda,Pedro H
+alcaim,JacksonBarbosa_M048,r_coda dt_palat,s_coda,Pedro H
+alcaim,Joel_M017,r_coda dt_palat,s_coda,Pedro H
+alcaim,JonatasPortugal_M031,r_coda dt_palat,s_coda,Pedro H
+alcaim,Lila_F017,r_coda dt_palat,s_coda,Pedro H
+alcaim,Marcio_M011,r_coda dt_palat,s_coda,Pedro H
+alcaim,MarcosImbuzeiro_M036,r_coda dt_palat,s_coda,Pedro H
+alcaim,Marta_F009,r_coda dt_palat,s_coda,Pedro H
+alcaim,PriscilaTerra_F004,r_coda dt_palat,s_coda,Pedro H
+alcaim,SilvanaFerreira_F012,r_coda dt_palat,s_coda,Pedro H
+alcaim,Tulio_M027,r_coda dt_palat,s_coda,Pedro H
+certas_palavras,alba_zaluar,s_coda r_coda dt_palat,,Pedro Valadares
+certas_palavras,alvaro_malheiros,r_coda dt_palat,s_coda,Pedro H
+common_voice,63850bd9f5d888281e47a93004a0102ecb6716fe914b905b4d3cde0d89eb248ebdfdc7e9499e1c170495e3ddfee31ffd72df908f05ccd6748acc2ad8a4422817,s_coda r_coda dt_palat,,Pedro Valadares
+common_voice,ffd23738425e548d2d44cc8749987e20b7540f6e364852dac54ae6f852699a3d6cc12a267b14037b7a4a1fe16b7ee154dea639dc9ae224c877794f9261547b93,r_coda dt_palat,s_coda,Pedro Valadares
+thls,ThallesPieroni_THLS,r_coda dt_palat,s_coda,Pedro H

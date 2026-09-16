@@ -109,19 +109,91 @@ python tools/download_models.py zipa
 
 ### 3. Download datasets (optional)
 
-16 datasets are registered — 5 with auto-download scripts, 11 with instructions:
+19 corpora are registered: **13 with auto-download scripts** bundled in `tools/`,
+6 that are only available on request from their authors.
+`python tools/download_datasets.py list` shows both lists with their notes.
 
 ```bash
-# List everything
-python tools/download_datasets.py list
+# Install the extra deps these scripts need
+pip install -e ".[datasets]"
 
-# Auto-downloadable datasets:
-python tools/download_datasets.py brspeech_df     # BRSpeech-DF (HF)
-python tools/download_datasets.py gneutral        # GneutralSpeech (Kaggle)
-python tools/download_datasets.py tagarela        # TAGARELA episodes (HF)
-python tools/download_datasets.py colingpb        # CoLingPB interviews
-python tools/download_datasets.py certas_palavras # Word reading (HF)
+python tools/download_datasets.py list        # everything, with notes and caveats
+python tools/download_datasets.py all         # the small/medium sets
+python tools/download_datasets.py all --include-large   # plus the multi-GB corpora
 ```
+
+| Dataset | Source | Notes |
+|---------|--------|-------|
+| `alcaim` | [smt.ufrj.br mirror](https://igormq.github.io/datasets/) | Alcaim / CETUC, 145 h, 100 speakers × 1000 sentences. Streams + filters. |
+| `brspeech_df` | HF `AKCIT-Deepfake/BRSpeech-DF` | Bonafide samples by speaker |
+| `certas_palavras` | HF `nilc-nlp/certas_palavras` | Isolated word reading, ~70 speakers |
+| `cml_tts` | [OpenSLR 146](https://www.openslr.org/146/) | CML-TTS Portuguese, 9.7 GB tar.bz |
+| `colingpb` | repositorio.ufpb.br | Interviews + pyannote diarization (needs `HF_TOKEN`) |
+| `common_voice` | HF mirror (or local `cv_pt.tar.gz`) | Mozilla moved distribution to the Data Collective in Oct 2025 |
+| `coraa` | [nilc-nlp/CORAA](https://github.com/nilc-nlp/CORAA) | Splits into NURC-RE / C-ORAL / TEDx by speaker |
+| `gneutral` | Kaggle `mediatechlab` | Needs `~/.kaggle/kaggle.json` |
+| `mlaad` | HF `mueller91/MLAAD` | pt slice, 16 TTS systems. CC-BY-NC, gated — needs `HF_TOKEN` |
+| `nurcsp` | HF `nilc-nlp/CORAA-NURC-SP-Audio-Corpus` | Spontaneous São Paulo speech |
+| `sotaque_brasileiro` | GitHub release snapshots | Crowdsourced, with birth/current city+state metadata |
+| `tagarela` | HF `freds0/TAGARELA` | Podcast speech, keyed by Spotify episode ID |
+| `yodas` | HF `AdoCleanCode/portuguese_yodas_mfa_aligned` | Small YouTube-derived sample |
+
+Manual-only: `fakebraccent`, `braccent`, `nurc_rj`, `ynoguti`, `lasas`, `blizzard2027`.
+
+Every script writes into `$ACCENTS_BASE` (default `/mnt/data/accents`) unless given
+`--out`, and anything you pass after the dataset name is forwarded verbatim:
+
+```bash
+python tools/download_datasets.py alcaim --sentences balanced50 --max-speakers 20
+python tools/download_datasets.py coraa --split train --subsets nurc,coral
+python tools/download_datasets.py mlaad --systems "OpenAI TTS-1 HD" --max-per-system 50
+```
+
+#### Alcaim / CETUC
+
+The corpus this project leans on hardest gets the most options. The full archive is
+12.8 GB, so `download_alcaim.py` **streams** it and writes only the members that
+survive the filters — and stops reading as soon as a `--max-speakers` quota is full,
+since speakers are stored as contiguous blocks:
+
+```bash
+# everything
+python tools/download_alcaim.py
+
+# the phonetically balanced 50-sentence subset used across the papers
+python tools/download_alcaim.py --sentences balanced50
+
+# 20 speakers, 10 per gender, sentences 1-50
+python tools/download_alcaim.py --max-speakers 20 --balance-gender --sentences 1-50
+
+# named speakers, no per-utterance .txt files
+python tools/download_alcaim.py --speakers Alcione_F018,Aislam_M001 --no-transcripts
+
+# sibling corpora on the same mirror
+python tools/download_alcaim.py --corpus lapsbm      # LapsBM (FalaBrasil/UFPA)
+python tools/download_alcaim.py --corpus sid         # Sidney
+python tools/download_alcaim.py --corpus voxforge    # VoxForge pt-BR
+```
+
+Output:
+
+```
+alcaim/
+  sentences.txt            the 1000-sentence list, re-encoded latin-1 -> UTF-8
+  sentences_subset.txt     the sentences kept by --sentences (+ .ids, 1-based)
+  metadata.csv             filename, speaker, gender, sentence_id, text
+  {Speaker}_{G}{NNN}/
+    {G}{NNN}-{IIII}.wav    16 kHz mono, IIII is the 0-based sentence index
+    {G}{NNN}-{IIII}.txt    lowercase, unpunctuated transcription
+```
+
+The transcriptions are the THLS 1000-sentence list
+([gitlab.com/lfelipesv/1000-sentences-thls-dataset](https://gitlab.com/lfelipesv/1000-sentences-thls-dataset)),
+fetched automatically and re-encoded to UTF-8; utterance index `IIII` is the 0-based
+line number into it. `--sentences balanced50` reproduces the greedy phonetically
+balanced subset the project uses as its TTS prompt set (it selects on the same
+grapheme/digraph unit distribution, so it returns exactly the project's
+`sentences_50.txt`). Grab just the sentence list with `--sentences-only`.
 
 ## Usage
 
@@ -186,7 +258,7 @@ res = loso_cv(X, y, spks, RandomForestClassifier(n_estimators=300))
 print(f"LOSO accuracy: {res['acc']:.3f}")
 print(f"EER: {compute_eer(res['labels'], res['scores']):.1f}%")
 
-# Ablation grid (feature x classifier)
+# Ablation grid (feature x classifier) — CLASSIFIERS has rf, gb, lr, svm, xgb
 results = ablation_grid(
     feature_sets={"formants": X_f, "mfcc": X_m, "ssl_ecapa": X_s},
     labels=y,
@@ -194,6 +266,13 @@ results = ablation_grid(
 )
 for r in results:
     print(f"{r['feature']:12s} {r['classifier']:3s} → acc={r['acc']:.3f}")
+
+# Persist a trained model (+ metadata) and reload it later
+from pt_br_accent_toolbox.classification.persistence import save_model, load_model
+
+clf = CLASSIFIERS["xgb"]().fit(X, y)
+save_model("models/s_coda", clf, meta={"classes": [0, 1], "feat_names": ["f0", "f1", ...]})
+clf2, meta = load_model("models/s_coda")
 ```
 
 ## Marker Phone Groups
@@ -208,20 +287,47 @@ The tool detects three phonological markers using these IPA phone sets:
 
 Override with `groups=...` parameter on any extraction function.
 
-## Annotation Database
+## Speaker Annotations
 
-The `data/annotations` module loads speaker-level annotations from a SQLite database
-(default: `../classifier_ui/annotations.db`). Each speaker has optional labels for
-`s_coda`, `r_coda`, and `dt_palat` markers.
+115 natural PT-BR speakers across nine corpora, hand-labelled for the three
+markers. The labels ship with the package as CSVs
+(`pt_br_accent_toolbox/data/annotations/`), so a fresh clone reproduces the
+labelled cohort with no extra downloads — read that folder's `README.md` for the
+label vocabulary and the caveats (selection effects, ties, agreement).
+
+| File | Grain |
+|------|-------|
+| `annotations.csv` | one row per (dataset, speaker, annotator) — the raw labels |
+| `speakers.csv` | one row per (dataset, speaker) — majority label + agreement counts |
+| `summary.csv` | counts per dataset × marker × value |
+| `todo.csv` | speakers with a marker still unlabelled |
 
 ```python
-from pt_br_accent_toolbox.data.annotations import load_annotations, get_annotated_speakers
+from pt_br_accent_toolbox.data.annotations import (
+    load_annotations, load_annotation_rows, get_annotated_speakers)
 
-all_ann = load_annotations()
-# {'Spk1': {'s_coda': 'chiado'}, 'Spk2': {'r_coda': 'caipira', ...}}
+load_annotations()
+# {'Alcione_F018': {'s_coda': 'chiado'}, '5739': {'s_coda': 'sibilant', ...}}
 
-s_speakers = get_annotated_speakers(marker="s_coda", value="chiado")
-# ['Spk1', 'Spk7', ...]
+get_annotated_speakers(marker="s_coda", value="chiado")
+# ['Alcione_F018', 'Aislam_M001', ...]
+
+load_annotation_rows()          # raw rows: keeps dataset, annotator, source, notes
+```
+
+```bash
+pt-br-accent-toolbox annotations --marker r_coda --value caipira
+pt-br-accent-toolbox annotations --rows --marker s_coda --value chiado
+```
+
+`load_annotations()` prefers the SQLite store at `$ANNOTATIONS_DB` when it exists
+(the annotation UI writes there) and falls back to the bundled CSV otherwise. It is
+keyed by speaker ID alone, which merges the four IDs that appear in two corpora —
+use `load_annotation_rows()` when the corpus matters. Re-snapshot the CSVs after
+annotating:
+
+```bash
+python tools/export_annotations.py --db /path/to/classifier_ui/annotations.db
 ```
 
 ## Module Reference
@@ -231,9 +337,28 @@ pt_br_accent_toolbox/
 ├── README.md
 ├── pyproject.toml            Package metadata, dependencies, entry point
 ├── .gitignore
+├── .claude/skills/           Agent skills documenting this package's own API —
+│                             acoustic-features, phone-alignment, ssl-embeddings,
+│                             classifier-training (ships with the repo; Claude Code
+│                             picks these up automatically on clone)
 ├── tools/
+│   ├── _common.py            Resumable HTTP, streaming tar readers, ACCENTS_BASE paths
 │   ├── download_models.py    Download ZIPA, PhoneticXeus, SSL models
-│   └── download_datasets.py  Download BRSpeech-DF, Gneutral, Tagarela, etc.
+│   ├── download_datasets.py  Registry + wrapper over every download_*.py below
+│   ├── download_alcaim.py    Alcaim/CETUC (+ LapsBM, Sid, VoxForge) — stream & filter
+│   ├── download_brspeech_df.py
+│   ├── download_certas_palavras.py
+│   ├── download_cml_tts.py
+│   ├── download_colingpb.py
+│   ├── download_common_voice.py
+│   ├── download_coraa.py     -> coraa_nurc / coraa_coral / coraa_ted
+│   ├── download_gneutral.py
+│   ├── download_mlaad.py
+│   ├── download_nurcsp.py
+│   ├── download_sotaque_brasileiro.py
+│   ├── download_tagarela.py
+│   ├── download_yodas.py
+│   └── export_annotations.py Snapshot the annotation DB -> data/annotations/*.csv
 └── pt_br_accent_toolbox/
     ├── config.py             Audio SR, model paths, phone groups, SSL config
     ├── alignment/
@@ -248,9 +373,11 @@ pt_br_accent_toolbox/
     │   └── ssl.py            SSL embeddings (ECAPA, XLS-R, HuBERT, Wav2VecBert)
     ├── classification/
     │   ├── loso.py           LOSO CV loop, EER computation
-    │   └── ablation.py       Feature × classifier grid search
+    │   ├── ablation.py       Feature × classifier grid search (rf, gb, lr, svm, xgb)
+    │   └── persistence.py    save_model / load_model (pickle + meta.json)
     ├── data/
-    │   └── annotations.py    SQLite annotation loader
+    │   ├── annotations.py    Annotation loader (SQLite, CSV fallback)
+    │   └── annotations/      Bundled label snapshot + its README
     ├── api/
     │   └── pipeline.py       High-level FeaturePipeline orchestrator
     └── cli/
@@ -266,9 +393,22 @@ pt_br_accent_toolbox/
 
 ### Dependencies
 
-`numpy`, `scipy`, `scikit-learn`, `torch`, `torchaudio`, `transformers`,
-`onnxruntime-gpu`, `soundfile`, `librosa`, `lhotse`, `speechbrain`,
-`parselmouth`, `huggingface-hub`
+`numpy`, `scikit-learn`, `torch`, `transformers`, `onnxruntime`,
+`soundfile`, `librosa`, `lhotse`, `speechbrain`,
+`praat-parselmouth`, `huggingface-hub`
+
+By default the toolbox installs CPU-only `onnxruntime` (works everywhere, including
+machines without an NVIDIA GPU). For GPU-accelerated ZIPA inference:
+
+```bash
+pip install -e ".[gpu]"
+pip uninstall -y onnxruntime   # onnxruntime and onnxruntime-gpu both own the
+                                # `onnxruntime` import name; keep only one installed
+```
+
+`make_session()` always requests `CUDAExecutionProvider` first and falls back to
+`CPUExecutionProvider` automatically if no GPU build is installed — no code changes
+needed either way.
 
 ### Git Repository
 

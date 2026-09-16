@@ -16,6 +16,8 @@ def test_imports():
         compute_eer,
         ablation_grid,
         CLASSIFIERS,
+        save_model,
+        load_model,
         load_annotations,
         get_annotated_speakers,
     )
@@ -24,7 +26,8 @@ def test_imports():
     assert compute_eer is not None
     assert ablation_grid is not None
     assert isinstance(CLASSIFIERS, dict)
-    assert len(CLASSIFIERS) == 4
+    assert set(CLASSIFIERS.keys()) == {'rf', 'gb', 'lr', 'svm', 'xgb'}
+    assert save_model is not None and load_model is not None
 
 
 def test_config():
@@ -144,6 +147,25 @@ def test_eer():
     s2 = np.array([0.0, 0.0, 0.0, 0.0])
     eer2 = compute_eer(y, s2)
     assert 0.0 <= eer2 <= 100.0
+
+
+def test_model_persistence(tmp_path):
+    """save_model/load_model round-trip a fitted classifier and its metadata."""
+    import numpy as np
+    from sklearn.ensemble import RandomForestClassifier
+    from pt_br_accent_toolbox.classification.persistence import save_model, load_model
+
+    X = np.random.randn(20, 4).astype(np.float32)
+    y = np.array([0] * 10 + [1] * 10)
+    clf = RandomForestClassifier(n_estimators=10, random_state=42).fit(X, y)
+    meta = {'classes': [0, 1], 'feat_names': ['a', 'b', 'c', 'd'], 'loso_acc': 0.8}
+
+    out_dir = tmp_path / 'model'
+    save_model(out_dir, clf, meta)
+    loaded_clf, loaded_meta = load_model(out_dir)
+
+    assert np.array_equal(loaded_clf.predict(X), clf.predict(X))
+    assert loaded_meta == meta
 
 
 def test_ablation_grid():

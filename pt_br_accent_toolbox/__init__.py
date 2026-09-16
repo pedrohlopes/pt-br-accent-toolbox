@@ -10,4 +10,5 @@ __version__ = '0.1.0'
 from .api.pipeline import FeaturePipeline
 from .classification.loso import loso_cv, compute_eer
 from .classification.ablation import ablation_grid, CLASSIFIERS
+from .classification.persistence import save_model, load_model
 from .data.annotations import load_annotations, get_annotated_speakers

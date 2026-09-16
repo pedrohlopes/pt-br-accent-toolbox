@@ -5,6 +5,7 @@ from itertools import product
 from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import SVC
+from xgboost import XGBClassifier
 
 from .loso import loso_cv
 
@@ -13,6 +14,11 @@ CLASSIFIERS = {
     'gb': lambda **kw: GradientBoostingClassifier(n_estimators=300, random_state=42, **kw),
     'lr': lambda **kw: LogisticRegression(max_iter=5000, random_state=42, **kw),
     'svm': lambda **kw: SVC(probability=True, random_state=42, **kw),
+    'xgb': lambda **kw: XGBClassifier(
+        max_depth=4, n_estimators=300, learning_rate=0.05,
+        subsample=0.9, colsample_bytree=0.9, reg_lambda=1.0,
+        eval_metric='logloss', tree_method='hist', random_state=0, **kw,
+    ),
 }
 
 

@@ -18,3 +18,21 @@ zipa_model/
 # IDE
 .vscode/
 .idea/
+
+# Downloaded corpora (user-managed, never committed)
+certas_palavras/
+alcaim/
+coraa_*/
+cml_tts/
+common_voice/
+mlaad_ptbr/
+nurcsp/
+sotaque_brasileiro/
+tagarela/
+yodas_samples/
+gneutral_wavs/
+colingpb/
+brspeech_df/
+lapsbm/
+sid/
+voxforge_ptbr/

@@ -2,38 +2,34 @@
 Download datasets used with pt_br_accent_toolbox.
 
 Usage:
-    python tools/download_datasets.py list                         # show available datasets
-    python tools/download_datasets.py brspeech_df                  # BRSpeech-DF (bonafide)
-    python tools/download_datasets.py gneutral                     # GneutralSpeech (male+female)
-    python tools/download_datasets.py tagarela                     # TAGARELA spotify subset
-    python tools/download_datasets.py colingpb                     # CoLingPB interviews
+    python tools/download_datasets.py list                # show available datasets
+    python tools/download_datasets.py alcaim              # Alcaim / CETUC read speech
+    python tools/download_datasets.py coraa               # CORAA (NURC-RE, C-ORAL, TED)
+    python tools/download_datasets.py common_voice        # Common Voice pt
+    python tools/download_datasets.py all                 # every auto-downloadable set
 
-    python tools/download_datasets.py all                          # download everything
+Each dataset has its own dedicated download script bundled in this same tools/
+directory for fine-grained control (per-speaker limits, sentence subsets, splits) —
+this tool just wraps them with sensible defaults. Anything after the dataset name is
+forwarded verbatim to the underlying script:
 
-Each dataset has its own dedicated download script at the repo root
-for fine-grained control — this tool wraps them with sensible defaults.
+    python tools/download_datasets.py alcaim --sentences balanced50 --max-speakers 20
+
+Downloads land in $ACCENTS_BASE (default /mnt/data/accents) unless the wrapped
+script is given --out.
 """
 
 import argparse
-import os
 import subprocess
 import sys
 from pathlib import Path
 
-BASE = Path(os.environ.get('ACCENTS_BASE', '/mnt/data/accents')).resolve()
-REPO_ROOT = Path(__file__).resolve().parent.parent  # pt_br_accent_toolbox/
+TOOLS_DIR = Path(__file__).resolve().parent  # pt_br_accent_toolbox/tools/
 
 
 def _script(name: str) -> Path:
-    """Resolve a download script path, checking repo root and accents root."""
-    candidates = [
-        REPO_ROOT.parent / name,       # /mnt/data/accents/{name}
-        Path('/mnt/data/accents') / name,
-    ]
-    for c in candidates:
-        if c.exists():
-            return c
-    return candidates[0]  # return the expected path even if missing
+    """Resolve a download script path (bundled in tools/ alongside this file)."""
+    return TOOLS_DIR / name
 
 
 def _info(msg: str):
@@ -66,29 +62,21 @@ def _run_script(script_name: str, extra_args: list[str] | None = None):
 # ── dataset registry ─────────────────────────────────────────────────────────
 
 DATASETS = {
+    'alcaim': {
+        'desc': 'Alcaim / CETUC — 145 h read speech, 100 speakers x 1000 sentences',
+        'script': 'download_alcaim.py',
+        'args': [],
+        'notes': ('Streams the 12.8 GB tarball and filters on the fly. '
+                  '--sentences balanced50 pulls the phonetically balanced '
+                  '50-sentence subset; --corpus also serves lapsbm / sid / voxforge. '
+                  'Transcriptions come from the THLS 1000-sentence list.'),
+        'large': True,
+    },
     'brspeech_df': {
         'desc': 'BRSpeech-DF bonafide samples (HF: AKCIT-Deepfake/BRSpeech-DF)',
         'script': 'download_brspeech_df.py',
         'args': ['--min_wavs', '5'],
         'notes': 'Downloads FLAC files organized by speaker. ~800 speakers.',
-    },
-    'gneutral': {
-        'desc': 'GneutralSpeech male + female (Kaggle: mediatechlab)',
-        'script': 'download_gneutral.py',
-        'args': [],
-        'notes': 'Requires kaggle API credentials (~/.kaggle/kaggle.json).',
-    },
-    'tagarela': {
-        'desc': 'TAGARELA spotify-subset episodes (HF: freds0/TAGARELA)',
-        'script': 'download_tagarela.py',
-        'args': [],
-        'notes': 'Scans 1764 parquet shards to find target episodes. Needs fsspec, pyarrow.',
-    },
-    'colingpb': {
-        'desc': 'CoLingPB interview WAVs + pyannote diarization',
-        'script': 'download_colingpb.py',
-        'args': [],
-        'notes': 'Downloads from repositorio.ufpb.br. Requires pyannote + HF token.',
     },
     'certas_palavras': {
         'desc': 'Certas Palavras — isolated word reading (HF: nilc-nlp/certas_palavras)',
@@ -96,53 +84,110 @@ DATASETS = {
         'args': [],
         'notes': 'Downloads via datasets library. ~70 speakers, studio quality.',
     },
+    'cml_tts': {
+        'desc': 'CML-TTS Portuguese — LibriVox-derived read speech (OpenSLR 146)',
+        'script': 'download_cml_tts.py',
+        'args': [],
+        'notes': 'Streams the 9.7 GB tar.bz; flattens to cml_tts/{speaker}/*.wav.',
+        'large': True,
+    },
+    'colingpb': {
+        'desc': 'CoLingPB interview WAVs + pyannote diarization',
+        'script': 'download_colingpb.py',
+        'args': [],
+        'notes': 'Downloads from repositorio.ufpb.br. Requires pyannote + HF token.',
+    },
+    'common_voice': {
+        'desc': 'Common Voice pt — Mozilla crowdsourced read speech',
+        'script': 'download_common_voice.py',
+        'args': [],
+        'notes': ('Mozilla moved distribution to the Mozilla Data Collective in '
+                  'Oct 2025, so this pulls from a HF mirror by default; '
+                  '--source local organizes a cv_pt.tar.gz you downloaded yourself.'),
+        'large': True,
+    },
+    'coraa': {
+        'desc': 'CORAA ASR v1.1 — NURC-RE + C-ORAL Brasil + TEDx sub-corpora',
+        'script': 'download_coraa.py',
+        'args': ['--split', 'dev'],
+        'notes': ('Splits into coraa_nurc / coraa_coral / coraa_ted by speaker. '
+                  'Pass --split train for the full 59 GB archive.'),
+        'large': True,
+    },
+    'gneutral': {
+        'desc': 'GneutralSpeech male + female (Kaggle: mediatechlab)',
+        'script': 'download_gneutral.py',
+        'args': [],
+        'notes': 'Requires kaggle API credentials (~/.kaggle/kaggle.json).',
+    },
+    'mlaad': {
+        'desc': 'MLAAD pt — multi-TTS synthetic speech (HF: mueller91/MLAAD)',
+        'script': 'download_mlaad.py',
+        'args': [],
+        'notes': ('16 TTS systems under fake/pt/. CC-BY-NC 4.0, auto-gated repo — '
+                  'set HF_TOKEN or run `huggingface-cli login` first.'),
+    },
+    'nurcsp': {
+        'desc': 'NURC-SP audio corpus (HF: nilc-nlp/CORAA-NURC-SP-Audio-Corpus)',
+        'script': 'download_nurcsp.py',
+        'args': [],
+        'notes': 'Defaults to dev+test; --splits train adds the ~40 GB train tarball.',
+        'large': True,
+    },
+    'sotaque_brasileiro': {
+        'desc': 'Sotaque Brasileiro — crowdsourced PT-BR accent corpus with geo metadata',
+        'script': 'download_sotaque_brasileiro.py',
+        'args': [],
+        'notes': ('Newest GitHub release snapshot (~1.6 GB). --by-state builds the '
+                  'per-state tree the accent classifiers expect.'),
+    },
+    'tagarela': {
+        'desc': 'TAGARELA — segmented Brazilian podcast speech (HF: freds0/TAGARELA)',
+        'script': 'download_tagarela.py',
+        'args': ['--max-shards', '4'],
+        'notes': ('1764 parquet shards keyed by Spotify episode ID. Pass '
+                  '--episodes @ids.txt to reproduce a curated subset, or raise '
+                  '--max-shards for a larger sample.'),
+        'large': True,
+    },
+    'yodas': {
+        'desc': 'YODAS pt-BR sample (HF: AdoCleanCode/portuguese_yodas_mfa_aligned)',
+        'script': 'download_yodas.py',
+        'args': [],
+        'notes': 'Small YouTube-derived sample, ~963 utterances, no speaker labels.',
+    },
 }
 
-# Datasets without a dedicated download script (manual setup for now)
+# Datasets without a dedicated download script — no public programmatic source.
 MANUAL_DATASETS = {
-    'mlaad': {
-        'desc': 'MLAAD PT-BR — multi-TTS fake audio (HF: mozilla-foundation/mlaad)',
-        'url': 'https://huggingface.co/datasets/mozilla-foundation/mlaad',
-        'notes': 'Filter by lang=pt. 16 TTS systems. Use datasets library to download.',
-    },
     'fakebraccent': {
-        'desc': 'FakeBrAccent — voice-converted PT-BR speech (Udinese corpus)',
-        'notes': 'Contact corpus authors for access. See accent_detection_fakebr/.',
+        'desc': 'Fake_BrAccent — voice-converted PT-BR speech, 5 accent classes',
+        'notes': ('Not publicly distributed. Contact the corpus authors; the '
+                  'accents project keeps it under data/synthetic/fake_braccent.'),
     },
-    'alcaim': {
-        'desc': 'ALCaim — PB accent corpus (Celle et al.)',
-        'url': 'https://www.sketchengine.eu/alcaim-portuguese-corpus/',
-        'notes': 'Contact corpus maintainers for access.',
+    'braccent': {
+        'desc': 'BRAccent — PT-BR regional accent corpus (UFPA)',
+        'url': 'https://github.com/falabrasil/speech-datasets',
+        'notes': ('Distributed on request by the FalaBrasil group at UFPA. '
+                  'Layout once obtained: BRAccent/{Mono,Stereo}/{region}/{gender}/.'),
     },
-    'nurc': {
-        'desc': 'NURC-RJ / NURC-SP — spoken PB corpus',
+    'nurc_rj': {
+        'desc': 'NURC-RJ — spoken PB corpus (Rio de Janeiro)',
         'url': 'https://nurc.letras.ufrj.br/',
-        'notes': 'Contact NURC project for access.',
+        'notes': ('Contact the NURC project. For NURC-SP use the `nurcsp` entry '
+                  'above, which is on HuggingFace.'),
+    },
+    'ynoguti': {
+        'desc': 'Ynoguti PB speech corpus (Inatel)',
+        'notes': 'Contact the corpus authors; distributed as novabase.zip.',
     },
     'lasas': {
         'desc': 'LASAS — PB speech corpus',
         'notes': 'Contact corpus authors.',
     },
-    'braccent': {
-        'desc': 'BRAccent — PT-BR accent corpus',
-        'notes': 'Available via UFPA. Check BRAccent/ directory.',
-    },
-    'common_voice': {
-        'desc': 'Common Voice pt — Mozilla crowdsourced corpus',
-        'url': 'https://commonvoice.mozilla.org/',
-        'notes': 'Download cv_pt.tar.gz, then run extract_cv.py to organize.',
-    },
-    'cml_tts': {
-        'desc': 'CML TTS PT-BR — synthetic speech',
-        'notes': 'Download cml_tts_pt.tar.bz, then run extract_cml_tts.py.',
-    },
-    'coraal': {
-        'desc': 'CORAAL — Portuguese speech collection (NURC+CORAL+TED)',
-        'notes': 'Obtain coraa_train.zip, then run extract_coraa.py.',
-    },
-    'sotaque_brasileiro': {
-        'desc': 'Sotaque Brasileiro — PT-BR accent dataset',
-        'notes': 'Download sotaque_brasileiro.zip and extract.',
+    'blizzard2027': {
+        'desc': 'Blizzard-2027 TTS corpora (falar_tts, nurc_tts)',
+        'notes': 'Challenge-restricted; obtained through the Blizzard organisers.',
     },
 }
 
@@ -154,7 +199,8 @@ def list_datasets():
     for name, ds in sorted(DATASETS.items()):
         script = _script(ds['script'])
         has_script = '✓' if script.exists() else '✗ (script not found)'
-        print(f'  {name}')
+        size_tag = '  [bulk — excluded from `all`]' if ds.get('large') else ''
+        print(f'  {name}{size_tag}')
         print(f'    {ds["desc"]}')
         print(f'    script: {ds["script"]} {has_script}')
         if ds['args']:
@@ -194,14 +240,26 @@ def download_dataset(name: str, extra_args: list[str] | None = None) -> bool:
         return False
 
 
-def download_all(extra_args: list[str] | None = None) -> bool:
-    """Download all auto-downloadable datasets."""
+def download_all(extra_args: list[str] | None = None,
+                 include_large: bool = False) -> bool:
+    """
+    Download the auto-downloadable datasets.
+
+    Corpora marked 'large' (tens of GB each) are skipped unless include_large is
+    set, so a bare `all` stays something you can run without planning disk space.
+    """
+    skipped = [n for n, ds in DATASETS.items() if ds.get('large') and not include_large]
     all_ok = True
     for name in DATASETS:
+        if name in skipped:
+            continue
         print(f'=== {name} ===')
         ok = download_dataset(name, extra_args)
         print()
         all_ok = all_ok and ok
+    if skipped:
+        _info(f'skipped bulk corpora: {", ".join(skipped)} '
+              f'(add --include-large, or download them individually)')
     if all_ok:
         _info('all datasets downloaded')
     else:
@@ -219,6 +277,8 @@ def main():
     parser.add_argument('target', nargs='?', default='list',
                         choices=['list', 'all'] + all_keys,
                         help='Dataset to download (default: list)')
+    parser.add_argument('--include-large', action='store_true',
+                        help='with "all", also fetch the multi-GB corpora')
     parser.add_argument('extra', nargs=argparse.REMAINDER,
                         help='Extra args passed to the underlying download script')
     args = parser.parse_args()
@@ -227,7 +287,7 @@ def main():
         list_datasets()
         ok = True
     elif args.target == 'all':
-        ok = download_all(args.extra)
+        ok = download_all(args.extra, include_large=args.include_large)
     else:
         ok = download_dataset(args.target, args.extra)
 

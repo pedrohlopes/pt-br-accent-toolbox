@@ -12,20 +12,28 @@ dependencies = [
     "scikit-learn",
     "torch",
     "transformers",
-    "onnxruntime-gpu",
+    "onnxruntime",
     "soundfile",
     "librosa",
     "lhotse",
     "speechbrain",
-    "parselmouth",
+    "praat-parselmouth",
     "huggingface-hub",
+    "xgboost",
 ]
+
+[project.optional-dependencies]
+gpu = ["onnxruntime-gpu"]
+datasets = ["pandas", "datasets", "kaggle", "pyannote.audio", "pyarrow", "fsspec"]
 
 [project.scripts]
 pt-br-accent-toolbox = "pt_br_accent_toolbox.cli.main:main"
 
 [tool.setuptools.packages.find]
 include = ["pt_br_accent_toolbox*"]
+
+[tool.setuptools.package-data]
+pt_br_accent_toolbox = ["data/annotations/*.csv", "data/annotations/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

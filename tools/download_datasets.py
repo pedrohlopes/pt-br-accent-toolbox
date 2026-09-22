@@ -95,7 +95,9 @@ DATASETS = {
         'desc': 'CoLingPB interview WAVs + pyannote diarization',
         'script': 'download_colingpb.py',
         'args': [],
-        'notes': 'Downloads from repositorio.ufpb.br. Requires pyannote + HF token.',
+        'notes': ('Discovers all 325 informants in the UFPB DSpace community by '
+                  'itself and caches the manifest. Diarization needs pyannote and '
+                  'HF_TOKEN; --discover-only works without either.'),
     },
     'common_voice': {
         'desc': 'Common Voice pt — Mozilla crowdsourced read speech',

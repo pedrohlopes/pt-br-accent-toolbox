@@ -15,6 +15,7 @@ Requirements:
 
 Usage:
   python download_gneutral.py
+  python download_gneutral.py --out gneutral_wavs
   python download_gneutral.py --max-wavs 500  # keep only N wavs per speaker
 """
 import argparse
@@ -22,15 +23,17 @@ import io
 import random
 import shutil
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
 import numpy as np
 import soundfile as sf
 
-BASE    = Path(__file__).parent
-OUT_DIR = BASE / 'gneutral_wavs'
-SR_OUT  = 16_000
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import resolve_out  # noqa: E402
+
+SR_OUT = 16_000
 
 DATASETS = [
     ('gneutral_male',   'mediatechlab/gneutralspeech'),
@@ -96,16 +99,18 @@ def extract_wavs(zip_path: Path, out_dir: Path, max_wavs: int | None):
 
 def main():
     ap = argparse.ArgumentParser()
+    ap.add_argument('--out', default=None,
+                    help='output directory (default: {ACCENTS_BASE}/gneutral_wavs)')
     ap.add_argument('--max-wavs', type=int, default=50,
                     help='Keep at most this many wavs per speaker (random subset)')
     args = ap.parse_args()
 
-    OUT_DIR.mkdir(exist_ok=True)
+    out_dir = resolve_out(args.out, 'gneutral_wavs')
 
     for name, slug in DATASETS:
         print(f'\n=== {name} ({slug}) ===')
-        tmp = OUT_DIR / f'_download_{name}'
-        out = OUT_DIR / name
+        tmp = out_dir / f'_download_{name}'
+        out = out_dir / name
 
         if list(out.glob('*.wav')):
             print(f'  Already have wavs in {out} — skipping download')
@@ -119,7 +124,7 @@ def main():
 
     print('\nAll done.')
     for name, _ in DATASETS:
-        d = OUT_DIR / name
+        d = out_dir / name
         n = len(list(d.glob('*.wav'))) if d.exists() else 0
         print(f'  {name}: {n} wavs')
 

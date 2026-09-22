@@ -128,7 +128,7 @@ python tools/download_datasets.py all --include-large   # plus the multi-GB corp
 | `brspeech_df` | HF `AKCIT-Deepfake/BRSpeech-DF` | Bonafide samples by speaker |
 | `certas_palavras` | HF `nilc-nlp/certas_palavras` | Isolated word reading, ~70 speakers |
 | `cml_tts` | [OpenSLR 146](https://www.openslr.org/146/) | CML-TTS Portuguese, 9.7 GB tar.bz |
-| `colingpb` | repositorio.ufpb.br | Interviews + pyannote diarization (needs `HF_TOKEN`) |
+| `colingpb` | repositorio.ufpb.br | 325 informants, discovered from the DSpace community; diarization needs `HF_TOKEN` |
 | `common_voice` | HF mirror (or local `cv_pt.tar.gz`) | Mozilla moved distribution to the Data Collective in Oct 2025 |
 | `coraa` | [nilc-nlp/CORAA](https://github.com/nilc-nlp/CORAA) | Splits into NURC-RE / C-ORAL / TEDx by speaker |
 | `gneutral` | Kaggle `mediatechlab` | Needs `~/.kaggle/kaggle.json` |

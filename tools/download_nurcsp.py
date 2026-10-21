@@ -79,10 +79,15 @@ def main():
         archive = Path(hf_hub_download(REPO, f'{split}.tar.gz', repo_type='dataset',
                                        local_dir=str(out_root)))
         dest = out_root / split
-        dest.mkdir(parents=True, exist_ok=True)
-        print(f'  extracting -> {dest}', flush=True)
         with tarfile.open(archive, 'r:gz') as tf:
-            tf.extractall(dest, filter='data')
+            # the archives carry a top-level `{split}/` directory; the metadata's file_path
+            # ('train/SP_EF_347/...wav') is relative to out_root, so extract there, not into dest
+            first = tf.next()
+            nested = first is not None and first.name.split('/')[0] == split
+            root = out_root if nested else dest
+            root.mkdir(parents=True, exist_ok=True)
+            print(f'  extracting -> {root}', flush=True)
+            tf.extractall(root, filter='data')
         if not args.keep_archive:
             archive.unlink(missing_ok=True)
             info(f'removed {archive.name}')

@@ -25,14 +25,15 @@ interviewer — which of the two is which is not recorded upstream and this scri
 does not guess.
 
 Usage:
-    export HF_TOKEN=hf_...          # needs access to pyannote/speaker-diarization-3.1
+    huggingface-cli login           # or export HF_TOKEN; needs access to pyannote/speaker-diarization-3.1
     python tools/download_colingpb.py
     python tools/download_colingpb.py --discover-only        # just write the manifest
     python tools/download_colingpb.py --regions "Mata Urbana,Mata Rural"
     python tools/download_colingpb.py --max-informants 20 --out colingpb
 
-The diarization model is gated: accept its terms on HuggingFace and pass a token
-through the standard HF_TOKEN environment variable (never hardcode one here).
+The diarization model is gated: accept its terms on HuggingFace, then either log in
+once with `huggingface-cli login` or pass a token through the standard HF_TOKEN
+environment variable (never hardcode one here).
 """
 from __future__ import annotations
 
@@ -60,7 +61,19 @@ COMMUNITY = '/jspui/handle/123456789/23184'   # CoLingPB - Corpus Linguístico d
 PAGE_SIZE = 100
 MANIFEST = 'colingpb_urls.json'
 
-HF_TOKEN = os.environ.get('HF_TOKEN') or os.environ.get('HUGGING_FACE_HUB_TOKEN')
+def _hf_token():
+    """HF_TOKEN / HUGGING_FACE_HUB_TOKEN, else the token saved by `huggingface-cli login`."""
+    tok = os.environ.get('HF_TOKEN') or os.environ.get('HUGGING_FACE_HUB_TOKEN')
+    if tok:
+        return tok
+    try:
+        from huggingface_hub import get_token
+        return get_token()
+    except Exception:
+        return None
+
+
+HF_TOKEN = _hf_token()
 SR = 16000
 MIN_SEG_S = 2.0
 MERGE_GAP_S = 0.3
@@ -311,8 +324,8 @@ def main():
 
     if not HF_TOKEN:
         raise SystemExit(
-            'Set HF_TOKEN to a HuggingFace token with access to '
-            'pyannote/speaker-diarization-3.1 (export HF_TOKEN=hf_...). '
+            'Log in with `huggingface-cli login` (or set HF_TOKEN) using a HuggingFace token with access to '
+            'pyannote/speaker-diarization-3.1. '
             'Use --discover-only to build the manifest without it.')
 
     print('  loading pyannote pipeline ...', flush=True)

@@ -51,7 +51,7 @@ def read_rows(db: Path) -> list[dict]:
     conn.row_factory = sqlite3.Row
     rows = [dict(r) for r in conn.execute(
         'SELECT annotator, dataset, speaker, s_coda, r_coda, dt_palat, '
-        '       notes, gold, updated_at '
+        '       notes, accent_description, gold, updated_at '
         'FROM annotations ORDER BY dataset, speaker, annotator')]
     conn.close()
 
@@ -62,13 +62,15 @@ def read_rows(db: Path) -> list[dict]:
             # from a marker that was simply never labelled.
             r[m] = (r[m] or '').strip()
         r['notes'] = (r['notes'] or '').strip()
+        r['accent_description'] = (r['accent_description'] or '').strip()
     return rows
 
 
 def write_annotations(rows: list[dict], out: Path) -> Path:
     path = out / 'annotations.csv'
     fields = ['dataset', 'speaker', 'annotator', 'source',
-              's_coda', 'r_coda', 'dt_palat', 'gold', 'notes', 'updated_at']
+              's_coda', 'r_coda', 'dt_palat', 'gold', 'accent_description',
+              'notes', 'updated_at']
     with open(path, 'w', newline='', encoding='utf-8') as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction='ignore')
         w.writeheader()

@@ -12,7 +12,9 @@ uses:
 `alip` and `sp` are skipped: their filenames carry no speaker information.
 
 Sources (see https://github.com/nilc-nlp/CORAA):
-    train  — http://143.107.183.175:14888/static/coraa/train.zip   (59 GB)
+    train  — http://143.107.183.175:14888/static/coraa/train.zip   (59 GB; server refused connections
+             in Sep 2026) — falls back to / can be forced to (--train-source hf) the 5-part RAR on HF
+             gabrielrstan/CORAA-v1.1 train_dividido/train.part{1..5}.rar (53 GB; needs `unrar` or `7z`)
     dev    — HF gabrielrstan/CORAA-v1.1 dev.zip
     test   — HF gabrielrstan/CORAA-v1.1 test.zip
     metadata CSVs — same HF repo
@@ -32,8 +34,12 @@ Needs `huggingface_hub` for the dev/test splits and their metadata.
 from __future__ import annotations
 
 import argparse
+import os
 import re
+import shutil
+import subprocess
 import sys
+import urllib.error
 import zipfile
 from collections import Counter
 from pathlib import Path
@@ -50,6 +56,7 @@ SPLITS = {
     'test':  {'zip': ('hf', 'test.zip'),     'meta': 'metadata_test_final.csv'},
 }
 
+TRAIN_RAR_PARTS = [f'train_dividido/train.part{i}.rar' for i in range(1, 6)]
 SUBSETS = {'nurc': 'coraa_nurc', 'coral': 'coraa_coral', 'ted': 'coraa_ted'}
 
 CORAL_RE = re.compile(r'_CO_(.+)\.wav$')
@@ -92,6 +99,62 @@ def fetch_zip(split: str, archive_dir: Path) -> Path:
                                 local_dir=str(archive_dir)))
 
 
+def fetch_train_rar(archive_dir: Path) -> Path:
+    """Train split from the HF multipart RAR: download the 5 parts (resumable), extract the whole split into
+    archive_dir/coraa_train_extracted/ (route() then keeps only the wanted sub-corpora) and return that dir."""
+    out = archive_dir / 'coraa_train_extracted'
+    marker = out / '.extracted'
+    if marker.exists():                         # a previous run finished extracting: RARs not needed
+        info(f'already extracted -> {out}')
+        return out
+    from huggingface_hub import hf_hub_download
+    parts = []
+    for p in TRAIN_RAR_PARTS:
+        print(f'  hf_hub_download({HF_REPO}, {p})', flush=True)
+        parts.append(Path(hf_hub_download(HF_REPO, p, repo_type='dataset', local_dir=str(archive_dir))))
+    out.mkdir(parents=True, exist_ok=True)
+    if shutil.which('unrar'):
+        cmd = ['unrar', 'x', '-o+', '-idq', str(parts[0]), str(out) + '/']
+    elif shutil.which('7z'):
+        cmd = ['7z', 'x', '-y', f'-o{out}', str(parts[0])]
+    else:
+        raise RuntimeError('extracting the CORAA train RAR needs `unrar` or `7z` on PATH')
+    print(f'  extracting {parts[0].name} (+{len(parts) - 1} parts) -> {out}', flush=True)
+    subprocess.run(cmd, check=True)
+    marker.touch()
+    return out
+
+
+def _split_root(src: Path, max_depth: int = 3) -> Path:
+    """Directory (<= max_depth below src) whose children are the sub-corpus folders (NURC_RE, CORAL,
+    Ted_part*), so extracted layouts with or without a top-level {split}/ folder both route correctly."""
+    level = [src]
+    for _ in range(max_depth + 1):
+        nxt = []
+        for d in level:
+            kids = [c for c in d.iterdir() if c.is_dir()]
+            names = {c.name for c in kids}
+            if names & {'NURC_RE', 'CORAL'} or any(n.startswith('Ted_part') for n in names):
+                return d
+            nxt += kids
+        level = nxt
+    raise RuntimeError(f'no NURC_RE / CORAL / Ted_part* folder found under {src}')
+
+
+def members(src: Path, split: str = 'train'):
+    """(name, size, read, path) for every file of a zip archive or an extracted directory; `name` is the
+    archive-relative posix path that route() expects ({split}/{subcorpus}/...); `path` is the extracted file
+    (None for zip members) so it can be hard-linked instead of copied."""
+    if src.is_dir():
+        root = _split_root(src)
+        for f in sorted(root.rglob('*.wav')):
+            yield f'{split}/{f.relative_to(root).as_posix()}', f.stat().st_size, f.read_bytes, f
+        return
+    with zipfile.ZipFile(src) as zf:
+        for m in zf.infolist():
+            yield m.filename, m.file_size, (lambda m=m: zf.read(m)), None
+
+
 def fetch_metadata(split: str, out_root: Path):
     name = SPLITS[split]['meta']
     try:
@@ -119,6 +182,8 @@ def main():
     ap.add_argument('--delete-archive', action='store_true',
                     help='remove the zip once extraction finishes')
     ap.add_argument('--no-metadata', action='store_true')
+    ap.add_argument('--train-source', default='auto', choices=['auto', 'url', 'hf'],
+                    help='train split: original zip URL, the HF multipart RAR, or auto (URL, then HF on failure)')
     args = ap.parse_args()
 
     wanted = {s.strip() for s in args.subsets.split(',') if s.strip()}
@@ -137,7 +202,16 @@ def main():
     if not args.no_metadata:
         fetch_metadata(args.split, out_root)
 
-    zip_path = fetch_zip(args.split, archive_dir)
+    if args.split == 'train' and args.train_source == 'hf':
+        zip_path = fetch_train_rar(archive_dir)
+    elif args.split == 'train' and args.train_source == 'auto':
+        try:
+            zip_path = fetch_zip(args.split, archive_dir)
+        except (urllib.error.URLError, ConnectionError, TimeoutError) as e:
+            warn(f'train zip URL failed ({e}); using the HF multipart RAR instead')
+            zip_path = fetch_train_rar(archive_dir)
+    else:
+        zip_path = fetch_zip(args.split, archive_dir)
 
     dests = {k: out_root / SUBSETS[k] for k in wanted}
     for d in dests.values():
@@ -147,41 +221,49 @@ def main():
     counts, skipped = Counter(), 0
 
     print(f'  extracting {zip_path.name} ...', flush=True)
-    with zipfile.ZipFile(zip_path) as zf:
-        for member in zf.infolist():
-            hit = route(member.filename)
-            if not hit:
-                continue
-            key, speaker, filename = hit
-            if key not in wanted:
-                continue
+    for name, size, read, path in members(zip_path, args.split):
+        hit = route(name)
+        if not hit:
+            continue
+        key, speaker, filename = hit
+        if key not in wanted:
+            continue
 
-            seen = speakers[key]
-            if speaker not in seen:
-                if args.max_speakers and len(seen) >= args.max_speakers:
-                    continue
-                seen[speaker] = 0
-            if args.max_utts and seen[speaker] >= args.max_utts:
+        seen = speakers[key]
+        if speaker not in seen:
+            if args.max_speakers and len(seen) >= args.max_speakers:
                 continue
+            seen[speaker] = 0
+        if args.max_utts and seen[speaker] >= args.max_utts:
+            continue
 
-            dest = dests[key] / speaker / filename
-            if dest.exists() and dest.stat().st_size == member.file_size:
-                skipped += 1
-            else:
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                dest.write_bytes(zf.read(member))
-                counts[key] += 1
-            seen[speaker] += 1
+        dest = dests[key] / speaker / filename
+        if dest.exists() and dest.stat().st_size == size:
+            skipped += 1
+        else:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            try:                                    # extracted tree: hard link (no extra I/O or space)
+                if path is None:
+                    raise OSError
+                dest.unlink(missing_ok=True)
+                os.link(path, dest)
+            except OSError:
+                dest.write_bytes(read())
+            counts[key] += 1
+        seen[speaker] += 1
 
-            done = sum(counts.values()) + skipped
-            if done % 5000 == 0:
-                print(f'\r  {done} files  ' +
-                      '  '.join(f'{k}={counts[k]}' for k in sorted(wanted)) + '   ',
-                      end='', flush=True)
+        done = sum(counts.values()) + skipped
+        if done % 5000 == 0:
+            print(f'\r  {done} files  ' +
+                  '  '.join(f'{k}={counts[k]}' for k in sorted(wanted)) + '   ',
+                  end='', flush=True)
     print(flush=True)
 
     if args.delete_archive:
-        zip_path.unlink(missing_ok=True)
+        if zip_path.is_dir():
+            shutil.rmtree(zip_path, ignore_errors=True)
+        else:
+            zip_path.unlink(missing_ok=True)
         info(f'removed {zip_path.name}')
     else:
         info(f'archive kept at {zip_path} — reuse it with --archive-dir')

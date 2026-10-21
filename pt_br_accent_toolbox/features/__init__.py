@@ -10,3 +10,8 @@ from .formants import (
 )
 from .mfcc import extract_mfcc, speaker_mfcc_mean
 from .ssl import load_model as load_ssl, forward_ssl, batch_forward_ssl, speaker_ssl_vector
+from .vowel_harmony import (
+    HarmonyMeasurer, speaker_descriptors as harmony_descriptors,
+    load_reference_cohort as load_harmony_reference,
+    FEAT_DIM as HARMONY_DIM, FEATURE_NAMES as HARMONY_FEATURES,
+)

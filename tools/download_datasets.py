@@ -72,6 +72,17 @@ DATASETS = {
                   'Transcriptions come from the THLS 1000-sentence list.'),
         'large': True,
     },
+    'blizzard2027': {
+        'desc': 'Blizzard Challenge 2027 — NURC-TTS (Recife + São Paulo) and FalAR-TTS',
+        'script': 'download_blizzard2027.py',
+        'args': [],
+        'notes': ('Public HF datasets nilc-nlp/nurc_tts_24khz (default, ~82 GB), '
+                  'nilc-nlp/nurc_tts (44.1 kHz, ~150 GB) and inesc-id/FalAR-TTS (EP, ~55 GB); '
+                  'description on Zenodo 22208787. --max-shards N for a sample, '
+                  '--export-wav for per-speaker 16 kHz wavs + transcripts. Recife '
+                  'segments are duplicated across two TextGrid tiers; the export dedups.'),
+        'large': True,
+    },
     'brspeech_df': {
         'desc': 'BRSpeech-DF bonafide samples (HF: AKCIT-Deepfake/BRSpeech-DF)',
         'script': 'download_brspeech_df.py',
@@ -115,6 +126,15 @@ DATASETS = {
         'notes': ('Splits into coraa_nurc / coraa_coral / coraa_ted by speaker. '
                   'Pass --split train for the full 59 GB archive.'),
         'large': True,
+    },
+    'fakebraccent': {
+        'desc': 'Fake-BrAccent — voice-converted PT-BR speech paired with BRAccent sources (Kaggle)',
+        'script': 'download_fakebraccent.py',
+        'args': [],
+        'notes': ('Two Kaggle releases: erickmiguelsantos/fake-braccent (373 real + 373 fake) '
+                  'and katarinaveljovic/fake-braccent-d (same fakes, 1172 real). '
+                  '5 accents x 2 genders. Needs ~/.kaggle/kaggle.json; --variant original|d|both, '
+                  '--to-wav16k for a decoded mirror (ffmpeg for the .mp3/.aac fakes).'),
     },
     'gneutral': {
         'desc': 'GneutralSpeech male + female (Kaggle: mediatechlab)',
@@ -162,11 +182,6 @@ DATASETS = {
 
 # Datasets without a dedicated download script — no public programmatic source.
 MANUAL_DATASETS = {
-    'fakebraccent': {
-        'desc': 'Fake_BrAccent — voice-converted PT-BR speech, 5 accent classes',
-        'notes': ('Not publicly distributed. Contact the corpus authors; the '
-                  'accents project keeps it under data/synthetic/fake_braccent.'),
-    },
     'braccent': {
         'desc': 'BRAccent — PT-BR regional accent corpus (UFPA)',
         'url': 'https://github.com/falabrasil/speech-datasets',
@@ -186,10 +201,6 @@ MANUAL_DATASETS = {
     'lasas': {
         'desc': 'LASAS — PB speech corpus',
         'notes': 'Contact corpus authors.',
-    },
-    'blizzard2027': {
-        'desc': 'Blizzard-2027 TTS corpora (falar_tts, nurc_tts)',
-        'notes': 'Challenge-restricted; obtained through the Blizzard organisers.',
     },
 }
 

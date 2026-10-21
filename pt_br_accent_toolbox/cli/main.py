@@ -20,7 +20,8 @@ def main():
     pext.add_argument('--speakers', required=True,
                       help='JSON file: {speaker_id: [audio_path, ...]}')
     pext.add_argument('--features', nargs='+', default=['formants', 'mfcc'],
-                      help="Feature names: spec zipa px formants mfcc ssl_ecapa ssl_xlsr ssl_hubert ssl_w2vbert")
+                      help="Feature names: spec zipa px formants mfcc ssl_ecapa ssl_xlsr ssl_hubert ssl_w2vbert vowel_harmony")
+    pext.add_argument('--texts', help='JSON file: {speaker_id: [transcript, ...]} (vowel_harmony only)')
     pext.add_argument('--out', required=True, help='Output directory')
 
     # ── markers ────────────────────────────────────────────────────────────
@@ -32,6 +33,15 @@ def main():
     pph = sub.add_parser('phonemes', help='Extract phoneme sequence from audio')
     pph.add_argument('audio', help='Audio file path')
     pph.add_argument('--out', help='Output JSON path (default: stdout)')
+
+    # ── harmony ────────────────────────────────────────────────────────────
+    phm = sub.add_parser('harmony', help='Pretonic vowel-harmony descriptors for one speaker')
+    phm.add_argument('audio', nargs='+', help="One speaker's audio files")
+    phm.add_argument('--texts', help='Text file with one transcript per audio file, in order '
+                                     '(default: greedy CTC transcription)')
+    phm.add_argument('--tokens-out', help='Also write the per-token measurements to this CSV')
+    phm.add_argument('--device', help='torch device (default: cuda if available)')
+    phm.add_argument('--out', help='Output JSON path (default: stdout)')
 
     # ── annotations ────────────────────────────────────────────────────────
     pann = sub.add_parser('annotations', help='List/load speaker annotations')
@@ -52,6 +62,8 @@ def main():
         run_markers(args)
     elif args.command == 'phonemes':
         run_phonemes(args)
+    elif args.command == 'harmony':
+        run_harmony(args)
     elif args.command == 'annotations':
         run_annotations(args)
     else:
@@ -65,8 +77,9 @@ def run_extract(args):
     out_dir = Path(args.out)
     out_dir.mkdir(parents=True, exist_ok=True)
 
+    texts = json.load(open(args.texts)) if args.texts else None
     pipe = FeaturePipeline()
-    results = pipe.extract(speakers, args.features)
+    results = pipe.extract(speakers, args.features, texts=texts)
 
     for fname, spk_dict in results.items():
         data: dict[str, list] = {'speaker': [], 'vector': []}
@@ -103,6 +116,56 @@ def run_phonemes(args):
     phones = extract_phoneme_sequence(audio)
 
     out = {'phonemes': phones, 'n_tokens': len(phones), 'sequence': ' '.join(phones)}
+
+    if args.out:
+        json.dump(out, open(args.out, 'w'), indent=2, ensure_ascii=False)
+        print(f'  saved {args.out}')
+    else:
+        print(json.dumps(out, indent=2, ensure_ascii=False))
+
+
+def run_harmony(args):
+    import csv
+    from ..features.vowel_harmony import (HarmonyMeasurer, load_reference_cohort,
+                                          speaker_descriptors)
+    texts = None
+    if args.texts:
+        texts = Path(args.texts).read_text(encoding='utf-8').splitlines()
+        if len(texts) != len(args.audio):
+            sys.exit(f'--texts has {len(texts)} lines for {len(args.audio)} audio files')
+    hm = HarmonyMeasurer(device=args.device)
+    rows = hm.speaker_tokens(args.audio, texts)
+    desc = speaker_descriptors(rows)
+
+    # where this speaker's OI falls in the Exp 56 regional distributions
+    ref = load_reference_cohort(gate_ok_only=True)
+    pct = {}
+    if np.isfinite(desc['OI']):
+        for macro in ('NE', 'SE'):
+            oi = np.array([r['OI'] for r in ref if r['macro'] == macro])
+            pct[macro] = round(float(np.mean(oi <= desc['OI']) * 100), 1)
+
+    def _num(v):
+        if isinstance(v, (np.integer,)):
+            return int(v)
+        if isinstance(v, (float, np.floating)):
+            return None if not np.isfinite(v) else round(float(v), 4)
+        return v
+
+    out = {'n_files': len(args.audio), 'n_tokens': len(rows), 'gate_ok': int(desc['gate_ok']),
+           'OI_percentile_in_reference': pct,
+           'descriptors': {k: _num(v) for k, v in desc.items()}}
+    if not desc['gate_ok']:
+        out['warning'] = ('speaker fails the anchor or token gate: the descriptors '
+                          'should not be trusted (more / longer audio usually fixes it)')
+
+    if args.tokens_out and rows:
+        keys = list(rows[0].keys())
+        with open(args.tokens_out, 'w', newline='', encoding='utf-8') as fh:
+            w = csv.DictWriter(fh, fieldnames=keys)
+            w.writeheader()
+            w.writerows(rows)
+        print(f'  saved {args.tokens_out}: {len(rows)} tokens', file=sys.stderr)
 
     if args.out:
         json.dump(out, open(args.out, 'w'), indent=2, ensure_ascii=False)

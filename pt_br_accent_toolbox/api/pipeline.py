@@ -4,7 +4,7 @@ from __future__ import annotations
 High-level feature extraction pipeline.
 
 Provides a unified interface to extract any combination of features
-(phoneticxeus, formants, spectral, ssl, mfcc, zipa) for a set of speakers,
+(phoneticxeus, formants, spectral, ssl, mfcc, zipa, vowel_harmony) for a set of speakers,
 given their audio file lists.
 """
 
@@ -45,6 +45,7 @@ class FeaturePipeline:
         self._px_token_list = None
         self._zipa_model = zipa_model
         self._zipa_tokens = zipa_tokens
+        self._harmony = None
 
     def _ensure_zipa(self):
         if self._sess is None:
@@ -57,6 +58,11 @@ class FeaturePipeline:
             from ..alignment.phoneticxeus import load_model as load_px
             self._px_model, self._px_device, self._px_token_list = load_px()
 
+    def _ensure_harmony(self):
+        if self._harmony is None:
+            from ..features.vowel_harmony import HarmonyMeasurer
+            self._harmony = HarmonyMeasurer()
+
     def get_markers(self, audio: np.ndarray) -> list[dict]:
         """Get phonological marker frames from audio."""
         self._ensure_zipa()
@@ -67,14 +73,17 @@ class FeaturePipeline:
         audio_paths: list[str],
         features: list[str] | None = None,
         groups: dict[str, list[str]] | None = None,
+        texts: list[str] | None = None,
     ) -> dict[str, Any]:
         """
         Extract requested features for one speaker.
 
         Args:
             audio_paths: list of audio file paths
-            features: subset of ['spec', 'zipa', 'px', 'formants', 'mfcc', 'ssl_ecapa', 'ssl_xlsr', 'ssl_hubert', 'ssl_w2vbert']
+            features: subset of ['spec', 'zipa', 'px', 'formants', 'mfcc', 'ssl_ecapa', 'ssl_xlsr', 'ssl_hubert', 'ssl_w2vbert', 'vowel_harmony']
             groups: override PHONE_GROUPS for px/zipa
+            texts: transcripts aligned 1:1 with audio_paths, used only by
+                vowel_harmony (missing ones are transcribed by greedy CTC)
 
         Returns:
             {feature_name: (vector, metadata)}
@@ -85,9 +94,10 @@ class FeaturePipeline:
         # Collect markers from all utterances
         all_markers: list[dict] = []
         valid_audios: list[np.ndarray] = []
-        self._ensure_zipa()
+        if {'spec', 'zipa', 'px', 'formants'} & set(features):
+            self._ensure_zipa()
 
-        for p in audio_paths:
+        for p in (audio_paths if {'spec', 'zipa', 'px'} & set(features) else []):
             try:
                 audio = load_audio(p)[:12 * SR]
             except Exception:
@@ -147,6 +157,12 @@ class FeaturePipeline:
                 vec, nutt = speaker_ssl_vector(audio_paths, ssl_name)
                 result[f'ssl_{ssl_name}'] = (vec, {'n_utterances': nutt})
 
+        # Pretonic vowel harmony (text-driven; XLSR char CTC + Praat F1)
+        if 'vowel_harmony' in features:
+            self._ensure_harmony()
+            vec, meta = self._harmony.speaker_vector(audio_paths, texts)
+            result['vowel_harmony'] = (vec, meta)
+
         return result
 
     def extract(
@@ -154,6 +170,7 @@ class FeaturePipeline:
         speakers: dict[str, list[str]],
         features: list[str] | None = None,
         groups: dict[str, list[str]] | None = None,
+        texts: dict[str, list[str]] | None = None,
     ) -> dict[str, dict[str, np.ndarray]]:
         """
         Extract features for multiple speakers.
@@ -162,6 +179,7 @@ class FeaturePipeline:
             speakers: {speaker_id: [audio_paths]}
             features: feature names to extract
             groups: override PHONE_GROUPS
+            texts: {speaker_id: [transcript, ...]} for vowel_harmony
 
         Returns:
             {feature_name: {speaker_id: vector}}
@@ -169,7 +187,8 @@ class FeaturePipeline:
         results: dict[str, dict[str, np.ndarray]] = {}
 
         for spk, paths in speakers.items():
-            res = self.extract_speaker(paths, features, groups)
+            res = self.extract_speaker(paths, features, groups,
+                                       texts=(texts or {}).get(spk))
             for fname, (vec, meta) in res.items():
                 results.setdefault(fname, {})
                 results[fname][spk] = vec

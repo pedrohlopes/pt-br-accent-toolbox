@@ -4,7 +4,8 @@ Feature extraction and analysis tools for Brazilian Portuguese speech research.
 
 > **What it is:** A reusable Python package for phonological marker detection,
 > multi-source feature extraction, and speaker-level classification — built around
-> real phonetic phenomena in Brazilian Portuguese (s-coda, r-coda, dt-palatalization).
+> real phonetic phenomena in Brazilian Portuguese (s-coda, r-coda, dt-palatalization,
+> pretonic vowel harmony).
 >
 > **What it isn't:** A paper-specific replication toolkit. No PE-vs-SP tasks, no
 > anti-spoofing metrics, no hardcoded experiment configs.
@@ -45,7 +46,9 @@ Feature extraction and analysis tools for Brazilian Portuguese speech research.
 ```
 
 Three feature families: **marker-local** (aligned to phonological events), **vowel**
-(per-vowel formant structure), and **global** (full-utterance embeddings).
+(per-vowel formant structure), and **global** (full-utterance embeddings). The
+vowel-harmony marker sits apart from the ZIPA chain: it is **text-driven** (see
+[Vowel Harmony](#vowel-harmony-pretonic-lowering) below).
 
 ## Feature Reference
 
@@ -60,6 +63,7 @@ Three feature families: **marker-local** (aligned to phonological events), **vow
 | `ssl_xlsr` | 1024 | HuggingFace | XLS-R 53-layer Portuguese Wav2Vec2 |
 | `ssl_hubert` | 1024 | HuggingFace | Facebook HuBERT large |
 | `ssl_w2vbert` | 2048 | HuggingFace | Wav2Vec2-Bert 2.0 |
+| `vowel_harmony` | 6 | XLSR char CTC + espeak-ng + parselmouth | Pretonic /e o/ lowering: OI, HI, open-rate, ΔOR, gradient slope, RI |
 
 ## Quick Start (new machine)
 
@@ -109,8 +113,8 @@ python tools/download_models.py zipa
 
 ### 3. Download datasets (optional)
 
-19 corpora are registered: **13 with auto-download scripts** bundled in `tools/`,
-6 that are only available on request from their authors.
+19 corpora are registered: **15 with auto-download scripts** bundled in `tools/`,
+4 that are only available on request from their authors.
 `python tools/download_datasets.py list` shows both lists with their notes.
 
 ```bash
@@ -125,12 +129,14 @@ python tools/download_datasets.py all --include-large   # plus the multi-GB corp
 | Dataset | Source | Notes |
 |---------|--------|-------|
 | `alcaim` | [smt.ufrj.br mirror](https://igormq.github.io/datasets/) | Alcaim / CETUC, 145 h, 100 speakers × 1000 sentences. Streams + filters. |
+| `blizzard2027` | HF `nilc-nlp/nurc_tts{,_24khz}`, `inesc-id/FalAR-TTS` ([Zenodo 22208787](https://zenodo.org/records/22208787)) | Blizzard Challenge 2027: NURC-TTS spontaneous Recife + São Paulo speech (472 h, transcribed) and European Portuguese FalAR-TTS. `--export-wav` writes per-speaker 16 kHz wavs |
 | `brspeech_df` | HF `AKCIT-Deepfake/BRSpeech-DF` | Bonafide samples by speaker |
 | `certas_palavras` | HF `nilc-nlp/certas_palavras` | Isolated word reading, ~70 speakers |
 | `cml_tts` | [OpenSLR 146](https://www.openslr.org/146/) | CML-TTS Portuguese, 9.7 GB tar.bz |
 | `colingpb` | repositorio.ufpb.br | 325 informants, discovered from the DSpace community; diarization needs `HF_TOKEN` |
 | `common_voice` | HF mirror (or local `cv_pt.tar.gz`) | Mozilla moved distribution to the Data Collective in Oct 2025 |
 | `coraa` | [nilc-nlp/CORAA](https://github.com/nilc-nlp/CORAA) | Splits into NURC-RE / C-ORAL / TEDx by speaker |
+| `fakebraccent` | Kaggle [`erickmiguelsantos/fake-braccent`](https://www.kaggle.com/datasets/erickmiguelsantos/fake-braccent), [`katarinaveljovic/fake-braccent-d`](https://www.kaggle.com/datasets/katarinaveljovic/fake-braccent-d) | Voice-converted BRAccent, 5 accents × 2 genders, every fake paired with its real source. Needs `~/.kaggle/kaggle.json` |
 | `gneutral` | Kaggle `mediatechlab` | Needs `~/.kaggle/kaggle.json` |
 | `mlaad` | HF `mueller91/MLAAD` | pt slice, 16 TTS systems. CC-BY-NC, gated — needs `HF_TOKEN` |
 | `nurcsp` | HF `nilc-nlp/CORAA-NURC-SP-Audio-Corpus` | Spontaneous São Paulo speech |
@@ -138,7 +144,7 @@ python tools/download_datasets.py all --include-large   # plus the multi-GB corp
 | `tagarela` | HF `freds0/TAGARELA` | Podcast speech, keyed by Spotify episode ID |
 | `yodas` | HF `AdoCleanCode/portuguese_yodas_mfa_aligned` | Small YouTube-derived sample |
 
-Manual-only: `fakebraccent`, `braccent`, `nurc_rj`, `ynoguti`, `lasas`, `blizzard2027`.
+Manual-only: `braccent`, `nurc_rj`, `ynoguti`, `lasas`.
 
 Every script writes into `$ACCENTS_BASE` (default `/mnt/data/accents`) unless given
 `--out`, and anything you pass after the dataset name is forwarded verbatim:
@@ -195,6 +201,41 @@ balanced subset the project uses as its TTS prompt set (it selects on the same
 grapheme/digraph unit distribution, so it returns exactly the project's
 `sentences_50.txt`). Grab just the sentence list with `--sentences-only`.
 
+#### Blizzard Challenge 2027 (NURC-TTS)
+
+NURC-TTS is ~320k transcribed 3–30 s clips of spontaneous, educated urban speech
+from Recife (NE) and São Paulo (SE), released for the Blizzard 2027 accented-TTS
+challenge. Each split sits on one side of the isoglosses this toolbox measures,
+so it doubles as a large accent corpus. The full 24 kHz copy is ~82 GB; start
+with a sample:
+
+```bash
+# first 2 shards per split (~3 GB) + per-speaker wavs with transcripts
+python tools/download_blizzard2027.py --max-shards 2 --export-wav
+
+# the 44.1 kHz copy, or the European Portuguese FalAR-TTS, or all three (~290 GB)
+python tools/download_blizzard2027.py --datasets nurc_tts
+python tools/download_blizzard2027.py --datasets falar_tts
+python tools/download_blizzard2027.py --datasets all
+```
+
+`--export-wav` writes `nurc_wav16k/{split}/{inquiry}__{speaker}/*.wav` and a
+`metadata.csv` (region, speaker key, role, text, inquiry metadata). It keeps one
+of the two duplicated Recife TextGrid tiers (`--recife-tier ue|nurc`) and skips
+the Recife interviewers (`Doc-*`) unless `--include-documenters`. Speaker IDs are
+per inquiry and, on the SP side, come from WhisperX diarization.
+
+#### Fake-BrAccent
+
+```bash
+python tools/download_fakebraccent.py                  # both Kaggle releases
+python tools/download_fakebraccent.py --variant d --to-wav16k
+```
+
+Writes the releases as shipped plus a `metadata.csv` parsed from the file names
+(accent, macro-region, speaker, sentence, age, city, state, education, real/fake;
+the label comes from the `FAKE/`/`REAL/` folder).
+
 ## Usage
 
 ### CLI
@@ -211,6 +252,9 @@ pt-br-accent-toolbox markers audio.wav
 
 # Get phoneme sequence
 pt-br-accent-toolbox phonemes audio.wav
+
+# Pretonic vowel harmony for one speaker (transcripts optional)
+pt-br-accent-toolbox harmony spk1/*.wav --texts spk1.txt --tokens-out tokens.csv
 
 # Query speaker annotations
 pt-br-accent-toolbox annotations --marker s_coda --value chiado
@@ -274,6 +318,66 @@ clf = CLASSIFIERS["xgb"]().fit(X, y)
 save_model("models/s_coda", clf, meta={"classes": [0, 1], "feat_names": ["f0", "f1", ...]})
 clf2, meta = load_model("models/s_coda")
 ```
+
+## Vowel Harmony (pretonic lowering)
+
+In much of the North and Northeast a pretonic /e, o/ opens to [ɛ, ɔ] when the
+stressed vowel of the same word is open — c[ɔ]léga, m[ɔ]léque — while the
+Southeast keeps [e, o]. `features.vowel_harmony` (ported from the accents
+project's Exp 56) measures this **without vowel-quality transcription and
+without labels**. Each step of the chain decides exactly one thing:
+
+| Source | Decides | Never decides |
+|--------|---------|---------------|
+| text + espeak-ng G2P (`alignment/g2p_stress.py`) | where the pretonic vowel is; the lexical stress and its open/closed quality (the trigger) | how the pretonic was realized |
+| XLSR-pt character CTC (`alignment/ctc_char.py`) | the time span of the vowel *letter* | which phone was said |
+| vocalic posterior (same forward pass) | refining the span to the vocalic run, bounded by the neighbouring letters | vowel identity |
+| Praat / parselmouth | F1, the openness measurement itself | — |
+
+ZIPA is deliberately not used: it barely separates [e] from [ɛ] (+13–20 Hz),
+and locating a lowered /e/ with a phone recognizer is circular. The character
+aligner recovers a +114 Hz gap (d = 1.21).
+
+Every token is placed on a ruler built from the speaker's own stressed vowels,
+`h = (F1 − F1[e]) / (F1[ɛ] − F1[e])` (and [o]/[ɔ] for ⟨o⟩), which removes vocal-tract
+length. The same anchors are a QA gate: if a speaker's stressed [ɛ] is not clearly
+above their [e], the alignment or formant tracking failed for them.
+
+| Descriptor | Meaning |
+|------------|---------|
+| `OI` | mean h before an open stressed vowel — the primary score |
+| `HI` | OI minus mean h before a close-mid stressed vowel (removes generic pretonic reduction) |
+| `open_rate_low`, `OR_delta` | share of tokens with h > 0.5, and its contrast to the control context |
+| `grad_slope` | h vs the trigger's own height (gradient vs categorical) |
+| `RI` | raising before a high stressed vowel (country-wide, weak regional marker) |
+| `gate_ok` | anchors pass **and** ≥ 15 open-trigger + ≥ 8 control tokens; trust nothing else |
+
+```python
+from pt_br_accent_toolbox.features.vowel_harmony import HarmonyMeasurer, load_reference_cohort
+
+hm = HarmonyMeasurer()                                  # loads XLSR once (~1.2 GB GPU)
+vec, meta = hm.speaker_vector(paths, texts)             # texts optional -> greedy CTC ASR
+meta['descriptors']['OI'], meta['gate_ok']
+
+# many speakers: also drops words rarer than 3x in the cohort (ASR hallucinations)
+desc = hm.cohort({'spk1': paths1, 'spk2': paths2}, texts={'spk1': t1, 'spk2': t2})
+
+ref = load_reference_cohort(gate_ok_only=True)          # the 477 usable Exp 56 speakers
+```
+
+It is also available as `features=['vowel_harmony']` in `FeaturePipeline`
+(pass `texts=` to `extract` / `extract_speaker`). Needs `espeak-ng` on PATH
+(`apt install espeak-ng`); the XLSR checkpoint is the one `download_models.py ssl`
+already fetches.
+
+**What Exp 56 found** (1,153 speakers, 9 corpora, 735k vowel tokens; the per-speaker
+results ship in `data/vowel_harmony/speakers.csv`): NE speakers open far more than
+SE ones, OI 0.646 vs 0.357 (d = +1.33, p = 5·10⁻²¹); the contrast survives
+restricting to the 264 word types both regions say (+0.30) and comparing within
+one corpus (Tagarela, d = 1.15). But there are **not two groups of speakers**:
+BIC prefers one component (ΔBIC = −42). Use OI as a continuous rate, unlike the
+categorical s/r/dt markers. Read speech with few tokens per speaker (Sotaque
+Brasileiro, ~8) falls below the gate.
 
 ## Marker Phone Groups
 
@@ -346,12 +450,14 @@ pt_br_accent_toolbox/
 │   ├── download_models.py    Download ZIPA, PhoneticXeus, SSL models
 │   ├── download_datasets.py  Registry + wrapper over every download_*.py below
 │   ├── download_alcaim.py    Alcaim/CETUC (+ LapsBM, Sid, VoxForge) — stream & filter
+│   ├── download_blizzard2027.py  NURC-TTS / FalAR-TTS (+ per-speaker wav export)
 │   ├── download_brspeech_df.py
 │   ├── download_certas_palavras.py
 │   ├── download_cml_tts.py
 │   ├── download_colingpb.py
 │   ├── download_common_voice.py
 │   ├── download_coraa.py     -> coraa_nurc / coraa_coral / coraa_ted
+│   ├── download_fakebraccent.py  Both Kaggle releases + parsed metadata.csv
 │   ├── download_gneutral.py
 │   ├── download_mlaad.py
 │   ├── download_nurcsp.py
@@ -363,21 +469,25 @@ pt_br_accent_toolbox/
     ├── config.py             Audio SR, model paths, phone groups, SSL config
     ├── alignment/
     │   ├── zipa.py           ZIPA CTC alignment, marker detection, phoneme extraction
-    │   └── phoneticxeus.py   PhoneticXeus model loading, forward logits, pooling
+    │   ├── phoneticxeus.py   PhoneticXeus model loading, forward logits, pooling
+    │   ├── ctc_char.py       XLSR character-CTC forced alignment + greedy ASR
+    │   └── g2p_stress.py     espeak-ng G2P, stress, pretonic trigger labelling
     ├── features/
     │   ├── spectral.py       6D spectral moments (pure NumPy)
     │   ├── zipa.py           Combined spectral + ZIPA logits at markers
     │   ├── phoneticxeus.py   PX group-logit features per marker
     │   ├── formants.py       29D vowel formant features (parselmouth Burg)
     │   ├── mfcc.py           Speaker-mean MFCC
-    │   └── ssl.py            SSL embeddings (ECAPA, XLS-R, HuBERT, Wav2VecBert)
+    │   ├── ssl.py            SSL embeddings (ECAPA, XLS-R, HuBERT, Wav2VecBert)
+    │   └── vowel_harmony.py  Pretonic-lowering tokens, speaker normalization, descriptors
     ├── classification/
     │   ├── loso.py           LOSO CV loop, EER computation
     │   ├── ablation.py       Feature × classifier grid search (rf, gb, lr, svm, xgb)
     │   └── persistence.py    save_model / load_model (pickle + meta.json)
     ├── data/
     │   ├── annotations.py    Annotation loader (SQLite, CSV fallback)
-    │   └── annotations/      Bundled label snapshot + its README
+    │   ├── annotations/      Bundled label snapshot + its README
+    │   └── vowel_harmony/    Exp 56 per-speaker reference cohort + its README
     ├── api/
     │   └── pipeline.py       High-level FeaturePipeline orchestrator
     └── cli/
@@ -396,6 +506,9 @@ pt_br_accent_toolbox/
 `numpy`, `scikit-learn`, `torch`, `transformers`, `onnxruntime`,
 `soundfile`, `librosa`, `lhotse`, `speechbrain`,
 `praat-parselmouth`, `huggingface-hub`
+
+The vowel-harmony marker also needs the **`espeak-ng` binary** (system package,
+`apt install espeak-ng` / `brew install espeak-ng`); nothing else in the toolbox does.
 
 By default the toolbox installs CPU-only `onnxruntime` (works everywhere, including
 machines without an NVIDIA GPU). For GPU-accelerated ZIPA inference:

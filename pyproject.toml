@@ -33,7 +33,8 @@ pt-br-accent-toolbox = "pt_br_accent_toolbox.cli.main:main"
 include = ["pt_br_accent_toolbox*"]
 
 [tool.setuptools.package-data]
-pt_br_accent_toolbox = ["data/annotations/*.csv", "data/annotations/*.md"]
+pt_br_accent_toolbox = ["data/annotations/*.csv", "data/annotations/*.md",
+                        "data/vowel_harmony/*.csv", "data/vowel_harmony/*.md"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

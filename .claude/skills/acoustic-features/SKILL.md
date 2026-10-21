@@ -1,6 +1,6 @@
 ---
 name: acoustic-features
-description: Phonological and acoustic feature extraction with pt_br_accent_toolbox — spectral moments, ZIPA logit probabilities, MFCCs, vowel formants, PhoneticXeus logits, via the FeaturePipeline and CLI. Used when asked to extract acoustic features, compute spectral moments, run ZIPA/PhoneticXeus on clips, compute MFCCs, or extract formants from speech in this repo.
+description: Phonological and acoustic feature extraction with pt_br_accent_toolbox — spectral moments, ZIPA logit probabilities, MFCCs, vowel formants, PhoneticXeus logits, pretonic vowel harmony (OI/HI), via the FeaturePipeline and CLI. Used when asked to extract acoustic features, compute spectral moments, run ZIPA/PhoneticXeus on clips, compute MFCCs, extract formants, or measure vowel harmony / pretonic lowering from speech in this repo.
 ---
 
 # Acoustic / Phonological Feature Extraction
@@ -29,6 +29,7 @@ import FeaturePipeline` now works from any cwd, including `/mnt/data/accents`.
 | `formants` | 29 | Per-vowel F1/F2/F3 means (21D) + LTFD (6D) + LTF0 (2D), via parselmouth Burg at ZIPA vowel spikes | `features/formants.py` → `extract_for_speaker()` |
 | `mfcc` | 13 | librosa speaker-mean MFCC | `features/mfcc.py` → `speaker_mfcc_mean()` |
 | `ssl_*` | 192–2048 | See `ssl-embeddings` skill | `features/ssl.py` |
+| `vowel_harmony` | 6 | `[OI, HI, open_rate_low, OR_delta, grad_slope, RI]` — text-driven: espeak-ng G2P + XLSR char CTC + Praat F1 (no ZIPA) | `features/vowel_harmony.py` → `HarmonyMeasurer` |
 
 `spec`'s 6 dims: `[centroid, spread, skewness, kurtosis, peak_freq, log_band_ratio]`
 (log ratio of 5–8 kHz to 2–4 kHz energy).
@@ -86,6 +87,26 @@ feat = spectral_moments(audio_np_array)   # (6,) float32, audio at any length
 model/session objects from the alignment layer — see the `phone-alignment` skill
 for how to obtain those, or just go through `FeaturePipeline` which wires it all
 together.
+
+## Vowel harmony
+
+`vowel_harmony` is the one feature that needs **text**: pass `texts=` (aligned
+1:1 with the audio paths) to `extract_speaker`, or `{spk: [..]}` to `extract`;
+missing transcripts are produced by greedy CTC from the same XLSR pass. CLI:
+`pt-br-accent-toolbox harmony spk/*.wav [--texts t.txt] [--tokens-out tok.csv]`
+also prints where the speaker's OI falls among the Exp 56 NE/SE speakers
+(`load_reference_cohort()`, bundled in `data/vowel_harmony/`).
+
+- Check `meta['gate_ok']`: speakers failing the anchor gate ([ɛ] − [e] ≥ 60 Hz,
+  d ≥ 0.7, [a] − [e] ≥ 150 Hz) or with < 15 open-trigger / < 8 control tokens get a
+  vector that means nothing. On Alcaim, 150 read sentences gave 64 open-trigger
+  and 27 control tokens, so plan for ~50+ sentences per speaker.
+- For a cohort use `HarmonyMeasurer.cohort()`, which also drops words seen < 3
+  times across the cohort (ASR hallucinations) — that filter matters for
+  ASR-transcribed audio.
+- OI is continuous; Exp 56 found no two-group structure. Do not threshold it
+  into classes and call that "discovered".
+- Needs `espeak-ng` on PATH.
 
 ## Output convention
 

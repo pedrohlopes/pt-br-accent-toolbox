@@ -2,14 +2,6 @@
 
 Feature extraction and analysis tools for Brazilian Portuguese speech research.
 
-> **What it is:** A reusable Python package for phonological marker detection,
-> multi-source feature extraction, and speaker-level classification — built around
-> real phonetic phenomena in Brazilian Portuguese (s-coda, r-coda, dt-palatalization,
-> pretonic vowel harmony).
->
-> **What it isn't:** A paper-specific replication toolkit. No PE-vs-SP tasks, no
-> anti-spoofing metrics, no hardcoded experiment configs.
-
 ---
 
 ## Architecture

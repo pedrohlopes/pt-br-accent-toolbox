@@ -113,7 +113,7 @@ python tools/download_models.py zipa
 
 ### 3. Download datasets (optional)
 
-19 corpora are registered: **15 with auto-download scripts** bundled in `tools/`,
+20 corpora are registered: **16 with auto-download scripts** bundled in `tools/`,
 4 that are only available on request from their authors.
 `python tools/download_datasets.py list` shows both lists with their notes.
 
@@ -142,6 +142,7 @@ python tools/download_datasets.py all --include-large   # plus the multi-GB corp
 | `nurcsp` | HF `nilc-nlp/CORAA-NURC-SP-Audio-Corpus` | Spontaneous São Paulo speech |
 | `sotaque_brasileiro` | GitHub release snapshots | Crowdsourced, with birth/current city+state metadata |
 | `tagarela` | HF `freds0/TAGARELA` | Podcast speech, keyed by Spotify episode ID |
+| `ttbacc` | [GitLab thalesaguiar21/accent-dataset](https://gitlab.com/thalesaguiar21/accent-dataset) / [MEGA](https://mega.nz/file/JkF2HQzZ#pqwru_4MKtnljqqsS9LbMsCSk5bR6ETLPm6IA0eTY2c) | TTBAcc TEDx PT-BR accent corpus (Aguiar & Abreu, 2023): 520 talks, 515 speakers across 21 states, 64 MFA TextGrids. Auto-segments 5–15 s clips (`--no-clips` to skip), `--by-state` for state tree, `--source` for local zip |
 | `yodas` | HF `AdoCleanCode/portuguese_yodas_mfa_aligned` | Small YouTube-derived sample |
 
 Manual-only: `braccent`, `nurc_rj`, `ynoguti`, `lasas`.

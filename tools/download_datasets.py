@@ -172,6 +172,16 @@ DATASETS = {
                   '--max-shards for a larger sample.'),
         'large': True,
     },
+    'ttbacc': {
+        'desc': 'TTBAcc — TEDx Brazilian Portuguese accent corpus (Thales Aguiar / UFRN)',
+        'script': 'download_ttbacc.py',
+        'args': [],
+        'notes': ('520 TEDx talks (515 speakers, 21 Brazilian states; state, city, birthplace, gender, age, '
+                  '64 MFA TextGrids). Hosted on MEGA (~11.5 GB) with auto-detect of local ttbacc-br.zip. '
+                  'Segments 5-15 s clips into clips/ for annotation & features (--no-clips to skip), '
+                  'supports --by-state, --source, and --mega-email / --mega-password.'),
+        'large': True,
+    },
     'yodas': {
         'desc': 'YODAS pt-BR sample (HF: AdoCleanCode/portuguese_yodas_mfa_aligned)',
         'script': 'download_yodas.py',
